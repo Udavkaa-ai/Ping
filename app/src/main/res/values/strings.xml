@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Ping RU</string>
+    <string name="want_internet">Хочу в интернет</string>
+    <string name="checking">Проверяю…</string>
+    <string name="widget_description">Шкала доступности интернета: проверяет TCP-соединения до выбранных хостов.</string>
+    <string name="gauge_description">Шкала доступности интернета</string>
+
+    <string name="global_hosts_title">Глобальные хосты</string>
+    <string name="global_hosts_hint">Сайты, которые блокируются первыми. По одному на строку. Если хотя бы один отвечает — стрелка зелёная.</string>
+    <string name="whitelist_hosts_title">Белый список</string>
+    <string name="whitelist_hosts_hint">Российские хосты, которые обычно остаются доступны. Если глобальные не отвечают, но эти отвечают — стрелка белая.</string>
+
+    <string name="save">Сохранить</string>
+    <string name="saved">Сохранено</string>
+    <string name="reset_defaults">Сбросить к дефолтам</string>
+    <string name="widget_install_hint">Чтобы добавить виджет: долгое нажатие на рабочий стол → Виджеты → Ping RU.</string>
+</resources>

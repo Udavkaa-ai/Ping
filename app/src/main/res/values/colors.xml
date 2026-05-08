@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="widget_bg">#1B1F23</color>
+    <color name="status_full">#3DDC84</color>
+    <color name="status_whitelist">#F1F1F1</color>
+    <color name="status_none">#E5484D</color>
+    <color name="status_unknown">#666B70</color>
+    <color name="ic_launcher_background">#1B1F23</color>
+</resources>
