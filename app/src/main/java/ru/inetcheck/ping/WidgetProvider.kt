@@ -38,8 +38,6 @@ class WidgetProvider : AppWidgetProvider() {
     companion object {
         const val ACTION_CHECK = "ru.inetcheck.ping.ACTION_CHECK"
         const val ONE_TIME_WORK = "internet_check"
-        private const val BITMAP_W = 500
-        private const val BITMAP_H = 320
 
         fun renderAll(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
@@ -58,18 +56,16 @@ class WidgetProvider : AppWidgetProvider() {
             val history = HistoryRepository(context)
             val views = RemoteViews(context.packageName, R.layout.widget)
 
-            val wifi = PillRenderer.Lane(
-                label = context.getString(R.string.network_wifi),
-                status = repo.lastStatusWifi,
-                percent = history.availabilityPercent(NetworkType.WIFI)
+            applyLane(
+                views, R.id.wifiDot, R.id.wifiPercent,
+                repo.lastStatusWifi,
+                history.availabilityPercent(NetworkType.WIFI)
             )
-            val mobile = PillRenderer.Lane(
-                label = context.getString(R.string.network_mobile),
-                status = repo.lastStatusMobile,
-                percent = history.availabilityPercent(NetworkType.MOBILE)
+            applyLane(
+                views, R.id.mobileDot, R.id.mobilePercent,
+                repo.lastStatusMobile,
+                history.availabilityPercent(NetworkType.MOBILE)
             )
-            val bitmap = PillRenderer.render(context, BITMAP_W, BITMAP_H, wifi, mobile)
-            views.setImageViewBitmap(R.id.widgetIndicator, bitmap)
 
             val buttonText = context.getString(
                 if (repo.isChecking) R.string.checking else R.string.want_internet
@@ -90,9 +86,28 @@ class WidgetProvider : AppWidgetProvider() {
                 },
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            views.setOnClickPendingIntent(R.id.widgetIndicator, openPi)
+            views.setOnClickPendingIntent(R.id.indicatorContainer, openPi)
 
             manager.updateAppWidget(widgetId, views)
+        }
+
+        private fun applyLane(
+            views: RemoteViews,
+            dotId: Int,
+            percentId: Int,
+            status: Status,
+            percent: Int?
+        ) {
+            views.setImageViewResource(dotId, dotResFor(status))
+            val text = if (status == Status.UNKNOWN || percent == null) "—" else "$percent%"
+            views.setTextViewText(percentId, text)
+        }
+
+        private fun dotResFor(status: Status) = when (status) {
+            Status.FULL -> R.drawable.dot_status_full
+            Status.WHITELIST -> R.drawable.dot_status_whitelist
+            Status.NONE -> R.drawable.dot_status_none
+            Status.UNKNOWN -> R.drawable.dot_status_unknown
         }
 
         private const val REQ_CHECK = 1
