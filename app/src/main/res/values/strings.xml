@@ -8,6 +8,7 @@
 
     <string name="network_wifi">Wi-Fi</string>
     <string name="network_mobile">Mobile</string>
+    <string name="widget_focus_label">РКН</string>
     <string name="available_24h">доступно за 24 ч</string>
 
     <string name="status_open">Открыт</string>

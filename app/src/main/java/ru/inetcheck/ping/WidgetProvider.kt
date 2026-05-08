@@ -56,21 +56,31 @@ class WidgetProvider : AppWidgetProvider() {
             val history = HistoryRepository(context)
             val views = RemoteViews(context.packageName, R.layout.widget)
 
-            applyLane(
+            applyMainLane(
                 views, R.id.wifiDot, R.id.wifiPercent,
                 repo.lastStatusWifi,
                 history.availabilityPercent(NetworkType.WIFI)
             )
-            applyLane(
+            applyMainLane(
                 views, R.id.mobileDot, R.id.mobilePercent,
                 repo.lastStatusMobile,
                 history.availabilityPercent(NetworkType.MOBILE)
             )
+            applyFocusLane(views, repo, history)
 
             val buttonText = context.getString(
                 if (repo.isChecking) R.string.checking else R.string.want_internet
             )
             views.setTextViewText(R.id.refreshButton, buttonText)
+
+            val openPi = PendingIntent.getActivity(
+                context, REQ_OPEN,
+                Intent(context, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                },
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.widgetRoot, openPi)
 
             val checkPi = PendingIntent.getBroadcast(
                 context, REQ_CHECK,
@@ -79,35 +89,57 @@ class WidgetProvider : AppWidgetProvider() {
             )
             views.setOnClickPendingIntent(R.id.refreshButton, checkPi)
 
-            val openPi = PendingIntent.getActivity(
-                context, REQ_OPEN,
-                Intent(context, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                },
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            views.setOnClickPendingIntent(R.id.indicatorContainer, openPi)
-
             manager.updateAppWidget(widgetId, views)
         }
 
-        private fun applyLane(
+        private fun applyMainLane(
             views: RemoteViews,
             dotId: Int,
             percentId: Int,
             status: Status,
             percent: Int?
         ) {
-            views.setImageViewResource(dotId, dotResFor(status))
+            views.setImageViewResource(dotId, mainDotResFor(status))
             val text = if (status == Status.UNKNOWN || percent == null) "—" else "$percent%"
             views.setTextViewText(percentId, text)
         }
 
-        private fun dotResFor(status: Status) = when (status) {
+        private fun applyFocusLane(
+            views: RemoteViews,
+            repo: HostsRepository,
+            history: HistoryRepository
+        ) {
+            val wifi = repo.lastFocusStatusWifi
+            val mobile = repo.lastFocusStatusMobile
+            // Aggregate: green only when at least one transport actually had a
+            // focus host respond. Anything else collapses to "blocked / no data".
+            val status = when {
+                wifi == Status.FULL || mobile == Status.FULL -> Status.FULL
+                wifi == Status.NONE || mobile == Status.NONE -> Status.NONE
+                else -> Status.UNKNOWN
+            }
+            val percent = listOfNotNull(
+                history.focusPercent(NetworkType.WIFI),
+                history.focusPercent(NetworkType.MOBILE)
+            ).maxOrNull()
+
+            views.setImageViewResource(R.id.focusDot, focusDotResFor(status))
+            val text = if (status == Status.UNKNOWN || percent == null) "—" else "$percent%"
+            views.setTextViewText(R.id.focusPercent, text)
+        }
+
+        private fun mainDotResFor(status: Status) = when (status) {
             Status.FULL -> R.drawable.dot_status_full
             Status.WHITELIST -> R.drawable.dot_status_whitelist
             Status.NONE -> R.drawable.dot_status_none
             Status.UNKNOWN -> R.drawable.dot_status_unknown
+        }
+
+        // For focus the colour scheme differs: blocked is the expected, neutral
+        // state; reachability is the only positive signal worth highlighting.
+        private fun focusDotResFor(status: Status) = when (status) {
+            Status.FULL -> R.drawable.dot_status_full
+            else -> R.drawable.dot_status_unknown
         }
 
         private const val REQ_CHECK = 1
