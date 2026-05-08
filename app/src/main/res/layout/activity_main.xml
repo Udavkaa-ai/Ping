@@ -12,6 +12,41 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:text="@string/history_title"
+            android:textStyle="bold"
+            android:textSize="16sp"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/history_hint"
+            android:textSize="12sp"
+            android:layout_marginBottom="6dp"/>
+
+        <ImageView
+            android:id="@+id/historyChart"
+            android:layout_width="match_parent"
+            android:layout_height="120dp"
+            android:contentDescription="@string/history_title"
+            android:scaleType="fitXY"/>
+
+        <Button
+            android:id="@+id/checkNowButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/check_now"/>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="12dp"
+            android:background="#33888888"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:text="@string/global_hosts_title"
             android:textStyle="bold"
             android:textSize="16sp"/>

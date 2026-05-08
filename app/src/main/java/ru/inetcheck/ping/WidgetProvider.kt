@@ -28,7 +28,7 @@ class WidgetProvider : AppWidgetProvider() {
             repo.isChecking = true
             renderAll(context)
             WorkManager.getInstance(context).enqueueUniqueWork(
-                WORK_NAME,
+                ONE_TIME_WORK,
                 ExistingWorkPolicy.KEEP,
                 OneTimeWorkRequestBuilder<CheckWorker>().build()
             )
@@ -37,7 +37,7 @@ class WidgetProvider : AppWidgetProvider() {
 
     companion object {
         const val ACTION_CHECK = "ru.inetcheck.ping.ACTION_CHECK"
-        private const val WORK_NAME = "internet_check"
+        const val ONE_TIME_WORK = "internet_check"
         private const val BITMAP_W = 600
         private const val BITMAP_H = 350
 

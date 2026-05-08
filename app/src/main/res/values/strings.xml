@@ -3,8 +3,13 @@
     <string name="app_name">Ping RU</string>
     <string name="want_internet">Хочу в интернет</string>
     <string name="checking">Проверяю…</string>
-    <string name="widget_description">Шкала доступности интернета: проверяет TCP-соединения до выбранных хостов.</string>
+    <string name="widget_description">Шкала доступности интернета: ходит HTTPS HEAD до выбранных хостов.</string>
     <string name="gauge_description">Шкала доступности интернета</string>
+
+    <string name="history_title">Доступность за 24 часа</string>
+    <string name="history_hint">Каждые 15 минут пингаются хосты в фоне; зелёный — открытый интернет, белый — только белый список, красный — ничего не отвечает.</string>
+    <string name="history_empty">Нет данных. Нажми «Проверить сейчас».</string>
+    <string name="check_now">Проверить сейчас</string>
 
     <string name="global_hosts_title">Глобальные хосты</string>
     <string name="global_hosts_hint">Сайты, которые блокируются первыми. По одному на строку. Если хотя бы один отвечает — стрелка зелёная.</string>

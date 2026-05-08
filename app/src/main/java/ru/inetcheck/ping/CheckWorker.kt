@@ -11,15 +11,19 @@ class CheckWorker(
 
     override suspend fun doWork(): Result {
         val repo = HostsRepository(applicationContext)
+        val history = HistoryRepository(applicationContext)
         try {
             val global = HostChecker.anyReachable(repo.globalHosts)
             val whitelist = if (!global) HostChecker.anyReachable(repo.whitelistHosts) else false
-            repo.lastStatus = when {
+            val status = when {
                 global -> Status.FULL
                 whitelist -> Status.WHITELIST
                 else -> Status.NONE
             }
-            repo.lastCheckedAt = System.currentTimeMillis()
+            val now = System.currentTimeMillis()
+            repo.lastStatus = status
+            repo.lastCheckedAt = now
+            history.append(now, status)
         } finally {
             repo.isChecking = false
             WidgetProvider.renderAll(applicationContext)
