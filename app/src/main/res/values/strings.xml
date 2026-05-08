@@ -4,17 +4,25 @@
     <string name="want_internet">Хочу в интернет</string>
     <string name="checking">Проверяю…</string>
     <string name="widget_description">Шкала доступности интернета: ходит HTTPS HEAD до выбранных хостов.</string>
-    <string name="gauge_description">Шкала доступности интернета</string>
+    <string name="widget_indicator_description">Доступность Wi-Fi и мобильного интернета</string>
+
+    <string name="network_wifi">Wi-Fi</string>
+    <string name="network_mobile">Mobile</string>
+    <string name="available_24h">доступно за 24 ч</string>
+
+    <string name="status_open">Открыт</string>
+    <string name="status_only_whitelist">Только белый список</string>
+    <string name="status_blocked">Заблокирован</string>
+    <string name="status_no_data">Нет данных</string>
 
     <string name="history_title">Доступность за 24 часа</string>
-    <string name="history_hint">Каждые 15 минут пингаются хосты в фоне; зелёный — открытый интернет, белый — только белый список, красный — ничего не отвечает.</string>
-    <string name="history_empty">Нет данных. Нажми «Проверить сейчас».</string>
     <string name="check_now">Проверить сейчас</string>
 
+    <string name="hosts_section">Хосты</string>
     <string name="global_hosts_title">Глобальные хосты</string>
-    <string name="global_hosts_hint">Сайты, которые блокируются первыми. По одному на строку. Если хотя бы один отвечает — стрелка зелёная.</string>
+    <string name="global_hosts_hint">Сайты, которые блокируются первыми. По одному на строку.</string>
     <string name="whitelist_hosts_title">Белый список</string>
-    <string name="whitelist_hosts_hint">Российские хосты, которые обычно остаются доступны. Если глобальные не отвечают, но эти отвечают — стрелка белая.</string>
+    <string name="whitelist_hosts_hint">Российские хосты, которые обычно остаются доступны.</string>
 
     <string name="save">Сохранить</string>
     <string name="saved">Сохранено</string>

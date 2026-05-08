@@ -1,9 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="widget_bg">#1B1F23</color>
+    <color name="bg_dark">#1B1F23</color>
+    <color name="card_dark">#232830</color>
+    <color name="accent_blue">#3478F6</color>
+    <color name="text_primary">#F1F1F1</color>
+    <color name="text_secondary">#A0A6AD</color>
+
     <color name="status_full">#3DDC84</color>
     <color name="status_whitelist">#F1F1F1</color>
     <color name="status_none">#E5484D</color>
     <color name="status_unknown">#666B70</color>
-    <color name="ic_launcher_background">#1B1F23</color>
+
+    <color name="pill_track">#33FFFFFF</color>
+    <color name="chart_track">#14181C</color>
+
+    <!-- legacy alias used by the launcher icon -->
+    <color name="widget_bg">@color/bg_dark</color>
+    <color name="ic_launcher_background">@color/bg_dark</color>
 </resources>

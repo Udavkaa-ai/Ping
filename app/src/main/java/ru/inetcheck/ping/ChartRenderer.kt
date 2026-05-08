@@ -1,8 +1,10 @@
 package ru.inetcheck.ping
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
+import androidx.core.content.ContextCompat
 import java.util.Calendar
 
 object ChartRenderer {
@@ -10,90 +12,132 @@ object ChartRenderer {
     private const val DAY_MS = 24L * 60L * 60L * 1000L
     private const val BUCKETS = 96 // 24h / 15min
 
-    private const val BG = 0xFF1B1F23.toInt()
-    private const val AXIS = 0xFF555555.toInt()
-    private const val LABEL = 0xFFAAAAAA.toInt()
+    data class Lane(val label: String, val entries: List<HistoryRepository.Entry>)
 
     fun render(
+        context: Context,
         width: Int,
         height: Int,
-        entries: List<HistoryRepository.Entry>,
-        emptyMessage: String
+        wifi: Lane,
+        mobile: Lane
     ): Bitmap {
         val w = width.coerceAtLeast(240)
         val h = height.coerceAtLeast(80)
         val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
-        val bg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = BG }
+        val bg = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = ContextCompat.getColor(context, R.color.bg_dark)
+        }
         canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), bg)
+
+        val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = ContextCompat.getColor(context, R.color.text_secondary)
+            textSize = h * 0.11f
+        }
+        val labelMaxW = maxOf(
+            labelPaint.measureText(wifi.label),
+            labelPaint.measureText(mobile.label)
+        )
+        val labelAreaW = labelMaxW + h * 0.10f
+        val chartLeft = labelAreaW
+        val chartW = w - chartLeft - h * 0.04f
+
+        val axisH = h * 0.18f
+        val laneArea = h - axisH
+        val gap = h * 0.05f
+        val laneH = (laneArea - gap) / 2f
+
+        val wifiTop = 0f
+        val wifiBottom = wifiTop + laneH
+        val mobileTop = wifiBottom + gap
+        val mobileBottom = mobileTop + laneH
 
         val now = System.currentTimeMillis()
         val start = now - DAY_MS
-        val bucketMs = DAY_MS / BUCKETS
 
-        val chartH = h * 0.72f
+        drawLane(context, canvas, chartLeft, wifiTop, chartW, laneH, wifi.entries, start, now)
+        drawLane(context, canvas, chartLeft, mobileTop, chartW, laneH, mobile.entries, start, now)
 
-        if (entries.isEmpty()) {
-            val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = LABEL
-                textSize = h * 0.18f
-            }
-            val tw = text.measureText(emptyMessage)
-            canvas.drawText(emptyMessage, (w - tw) / 2f, h * 0.5f, text)
-            drawAxis(canvas, w, h, chartH, start)
-            return bitmap
-        }
+        // Lane labels on the left, vertically centred in their lane
+        canvas.drawText(wifi.label, h * 0.04f, wifiTop + laneH / 2 + labelPaint.textSize / 3, labelPaint)
+        canvas.drawText(mobile.label, h * 0.04f, mobileTop + laneH / 2 + labelPaint.textSize / 3, labelPaint)
 
-        val bucketStatus = arrayOfNulls<Status>(BUCKETS)
-        val bucketTime = LongArray(BUCKETS)
-        for (e in entries) {
-            if (e.time < start || e.time > now) continue
-            val idx = ((e.time - start) / bucketMs).toInt().coerceIn(0, BUCKETS - 1)
-            if (e.time >= bucketTime[idx]) {
-                bucketStatus[idx] = e.status
-                bucketTime[idx] = e.time
-            }
-        }
+        drawAxis(context, canvas, chartLeft, chartW, mobileBottom, h.toFloat(), start)
 
-        val barW = w.toFloat() / BUCKETS
-        val cellPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-        for (i in 0 until BUCKETS) {
-            val s = bucketStatus[i] ?: continue
-            cellPaint.color = colorFor(s)
-            // +0.5 to avoid hairline gaps from float rounding
-            canvas.drawRect(i * barW, 0f, (i + 1) * barW + 0.5f, chartH, cellPaint)
-        }
-
-        drawAxis(canvas, w, h, chartH, start)
         return bitmap
     }
 
-    private fun drawAxis(canvas: Canvas, w: Int, h: Int, chartH: Float, start: Long) {
-        val tickPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = AXIS
-            strokeWidth = 1.5f
+    private fun drawLane(
+        context: Context,
+        canvas: Canvas,
+        x: Float, y: Float, w: Float, h: Float,
+        entries: List<HistoryRepository.Entry>,
+        start: Long, now: Long
+    ) {
+        val track = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = ContextCompat.getColor(context, R.color.chart_track)
         }
-        val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = LABEL
-            textSize = h * 0.16f
+        canvas.drawRect(x, y, x + w, y + h, track)
+
+        val bucketMs = DAY_MS / BUCKETS
+        val statuses = arrayOfNulls<Status>(BUCKETS)
+        val times = LongArray(BUCKETS)
+        for (e in entries) {
+            if (e.time < start || e.time > now) continue
+            val idx = ((e.time - start) / bucketMs).toInt().coerceIn(0, BUCKETS - 1)
+            if (e.time >= times[idx]) {
+                statuses[idx] = e.status
+                times[idx] = e.time
+            }
         }
-        val cal = Calendar.getInstance()
-        for (hourOffset in 0..24 step 6) {
-            val x = (hourOffset / 24f) * w
-            canvas.drawLine(x, chartH, x, chartH + h * 0.07f, tickPaint)
-            cal.timeInMillis = start + hourOffset * 3_600_000L
-            val label = "%02d:00".format(cal.get(Calendar.HOUR_OF_DAY))
-            val tw = labelPaint.measureText(label)
-            val drawX = (x - tw / 2f).coerceAtLeast(2f).coerceAtMost(w - tw - 2f)
-            canvas.drawText(label, drawX, h - 6f, labelPaint)
+
+        val barW = w / BUCKETS
+        val cell = Paint(Paint.ANTI_ALIAS_FLAG)
+        for (i in 0 until BUCKETS) {
+            val s = statuses[i] ?: continue
+            cell.color = colorFor(context, s)
+            canvas.drawRect(x + i * barW, y, x + (i + 1) * barW + 0.5f, y + h, cell)
         }
     }
 
-    private fun colorFor(s: Status) = when (s) {
-        Status.FULL -> 0xFF3DDC84.toInt()
-        Status.WHITELIST -> 0xFFF1F1F1.toInt()
-        Status.NONE -> 0xFFE5484D.toInt()
-        Status.UNKNOWN -> 0xFF666B70.toInt()
+    private fun drawAxis(
+        context: Context,
+        canvas: Canvas,
+        chartLeft: Float, chartW: Float,
+        topY: Float, h: Float,
+        start: Long
+    ) {
+        val tickPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = ContextCompat.getColor(context, R.color.text_secondary)
+            strokeWidth = 1f
+        }
+        val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = ContextCompat.getColor(context, R.color.text_secondary)
+            textSize = (h - topY) * 0.55f
+        }
+        val cal = Calendar.getInstance()
+        val tickTop = topY + (h - topY) * 0.05f
+        val tickBottom = topY + (h - topY) * 0.30f
+        for (hourOffset in 0..24 step 6) {
+            val xRel = (hourOffset / 24f) * chartW
+            val x = chartLeft + xRel
+            canvas.drawLine(x, tickTop, x, tickBottom, tickPaint)
+            cal.timeInMillis = start + hourOffset * 3_600_000L
+            val label = "%02d".format(cal.get(Calendar.HOUR_OF_DAY))
+            val tw = labelPaint.measureText(label)
+            val drawX = (x - tw / 2f).coerceAtLeast(chartLeft).coerceAtMost(chartLeft + chartW - tw)
+            canvas.drawText(label, drawX, h - 4f, labelPaint)
+        }
     }
+
+    private fun colorFor(context: Context, s: Status): Int = ContextCompat.getColor(
+        context,
+        when (s) {
+            Status.FULL -> R.color.status_full
+            Status.WHITELIST -> R.color.status_whitelist
+            Status.NONE -> R.color.status_none
+            Status.UNKNOWN -> R.color.status_unknown
+        }
+    )
 }

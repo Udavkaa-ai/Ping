@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Ping" parent="Theme.Material3.DayNight.NoActionBar"/>
+    <style name="Theme.Ping" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:windowBackground">@color/bg_dark</item>
+        <item name="colorPrimary">@color/accent_blue</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorSurface">@color/card_dark</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+    </style>
 </resources>
