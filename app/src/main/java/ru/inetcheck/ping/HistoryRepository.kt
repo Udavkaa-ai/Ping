@@ -8,9 +8,9 @@ class HistoryRepository(context: Context) {
     private val prefs = context.applicationContext
         .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    fun append(time: Long, status: Status, network: NetworkType) {
+    fun append(time: Long, status: Status, network: NetworkType, focus: Status) {
         val cutoff = System.currentTimeMillis() - RETAIN_MS
-        val updated = (load() + Entry(time, status, network))
+        val updated = (load() + Entry(time, status, network, focus))
             .filter { it.time >= cutoff }
             .sortedBy { it.time }
         prefs.edit {
@@ -32,23 +32,51 @@ class HistoryRepository(context: Context) {
         return good * 100 / matches.size
     }
 
+    /**
+     * Share of checks (within [windowMs]) on [network] where focus hosts were
+     * actually reachable. Entries with focus = UNKNOWN (no focus list, or
+     * legacy rows) are ignored. Returns null if there's no data to base on.
+     */
+    fun focusPercent(network: NetworkType, windowMs: Long = DAY_MS): Int? {
+        val cutoff = System.currentTimeMillis() - windowMs
+        val matches = load().filter {
+            it.network == network && it.time >= cutoff && it.focus != Status.UNKNOWN
+        }
+        if (matches.isEmpty()) return null
+        val reachable = matches.count { it.focus == Status.FULL }
+        return reachable * 100 / matches.size
+    }
+
     private fun encode(e: Entry) =
-        "${e.time},${e.status.ordinal},${e.network.ordinal}"
+        "${e.time},${e.status.ordinal},${e.network.ordinal},${e.focus.ordinal}"
 
     private fun decode(line: String): Entry? {
         val parts = line.split(',')
         if (parts.size < 2) return null
         val t = parts[0].toLongOrNull() ?: return null
         val s = Status.values().getOrNull(parts[1].toIntOrNull() ?: -1) ?: return null
-        // Legacy two-field rows (no network) → assume OTHER so they don't pollute
-        // either Wi-Fi or Mobile lanes but stay parseable.
         val n = if (parts.size >= 3) {
             NetworkType.values().getOrNull(parts[2].toIntOrNull() ?: -1) ?: NetworkType.OTHER
         } else NetworkType.OTHER
-        return Entry(t, s, n)
+        val f = if (parts.size >= 4) {
+            Status.values().getOrNull(parts[3].toIntOrNull() ?: -1) ?: Status.UNKNOWN
+        } else Status.UNKNOWN
+        return Entry(t, s, n, f)
     }
 
-    data class Entry(val time: Long, val status: Status, val network: NetworkType)
+    /**
+     * focus is reused as a 3-state flag for the focus list:
+     *   FULL    = at least one focus host responded ("RKN grip loosened")
+     *   NONE    = focus hosts blocked (expected)
+     *   UNKNOWN = focus list empty, or legacy row without the field
+     * Other Status values (WHITELIST) are not produced for focus.
+     */
+    data class Entry(
+        val time: Long,
+        val status: Status,
+        val network: NetworkType,
+        val focus: Status
+    )
 
     companion object {
         private const val PREFS = "ping_history"

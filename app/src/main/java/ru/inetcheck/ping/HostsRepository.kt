@@ -9,16 +9,16 @@ class HostsRepository(context: Context) {
         .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     var globalHosts: List<String>
-        get() = prefs.getString(KEY_GLOBAL, null)
-            ?.split('\n')?.map { it.trim() }?.filter { it.isNotEmpty() }
-            ?: DEFAULT_GLOBAL
-        set(value) = prefs.edit { putString(KEY_GLOBAL, value.joinToString("\n")) }
+        get() = readList(KEY_GLOBAL, DEFAULT_GLOBAL)
+        set(value) = writeList(KEY_GLOBAL, value)
 
     var whitelistHosts: List<String>
-        get() = prefs.getString(KEY_WHITELIST, null)
-            ?.split('\n')?.map { it.trim() }?.filter { it.isNotEmpty() }
-            ?: DEFAULT_WHITELIST
-        set(value) = prefs.edit { putString(KEY_WHITELIST, value.joinToString("\n")) }
+        get() = readList(KEY_WHITELIST, DEFAULT_WHITELIST)
+        set(value) = writeList(KEY_WHITELIST, value)
+
+    var focusHosts: List<String>
+        get() = readList(KEY_FOCUS, DEFAULT_FOCUS)
+        set(value) = writeList(KEY_FOCUS, value)
 
     var lastStatusWifi: Status
         get() = readStatus(KEY_STATUS_WIFI)
@@ -36,6 +36,14 @@ class HostsRepository(context: Context) {
         get() = prefs.getLong(KEY_AT_MOBILE, 0L)
         set(value) = prefs.edit { putLong(KEY_AT_MOBILE, value) }
 
+    var lastFocusStatusWifi: Status
+        get() = readStatus(KEY_FOCUS_STATUS_WIFI)
+        set(value) = prefs.edit { putInt(KEY_FOCUS_STATUS_WIFI, value.ordinal) }
+
+    var lastFocusStatusMobile: Status
+        get() = readStatus(KEY_FOCUS_STATUS_MOBILE)
+        set(value) = prefs.edit { putInt(KEY_FOCUS_STATUS_MOBILE, value.ordinal) }
+
     var isChecking: Boolean
         get() = prefs.getBoolean(KEY_CHECKING, false)
         set(value) = prefs.edit { putBoolean(KEY_CHECKING, value) }
@@ -46,10 +54,25 @@ class HostsRepository(context: Context) {
         else -> Status.UNKNOWN
     }
 
+    fun lastFocusStatusFor(network: NetworkType): Status = when (network) {
+        NetworkType.WIFI -> lastFocusStatusWifi
+        NetworkType.MOBILE -> lastFocusStatusMobile
+        else -> Status.UNKNOWN
+    }
+
     fun resetToDefaults() {
         globalHosts = DEFAULT_GLOBAL
         whitelistHosts = DEFAULT_WHITELIST
+        focusHosts = DEFAULT_FOCUS
     }
+
+    private fun readList(key: String, default: List<String>): List<String> =
+        prefs.getString(key, null)
+            ?.split('\n')?.map { it.trim() }?.filter { it.isNotEmpty() }
+            ?: default
+
+    private fun writeList(key: String, value: List<String>) =
+        prefs.edit { putString(key, value.joinToString("\n")) }
 
     private fun readStatus(key: String): Status =
         Status.values().getOrNull(prefs.getInt(key, Status.UNKNOWN.ordinal)) ?: Status.UNKNOWN
@@ -58,13 +81,17 @@ class HostsRepository(context: Context) {
         private const val PREFS = "ping_prefs"
         private const val KEY_GLOBAL = "global_hosts"
         private const val KEY_WHITELIST = "whitelist_hosts"
+        private const val KEY_FOCUS = "focus_hosts"
         private const val KEY_STATUS_WIFI = "last_status_wifi"
         private const val KEY_STATUS_MOBILE = "last_status_mobile"
         private const val KEY_AT_WIFI = "last_at_wifi"
         private const val KEY_AT_MOBILE = "last_at_mobile"
+        private const val KEY_FOCUS_STATUS_WIFI = "last_focus_status_wifi"
+        private const val KEY_FOCUS_STATUS_MOBILE = "last_focus_status_mobile"
         private const val KEY_CHECKING = "is_checking"
 
         val DEFAULT_GLOBAL = listOf("google.com", "cloudflare.com", "github.com")
         val DEFAULT_WHITELIST = listOf("yandex.ru", "vk.com", "mail.ru")
+        val DEFAULT_FOCUS = listOf("telegram.org", "youtube.com", "instagram.com")
     }
 }

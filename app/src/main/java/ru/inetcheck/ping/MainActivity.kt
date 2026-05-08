@@ -25,6 +25,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var mobileDot: View
     private lateinit var mobileStatus: TextView
     private lateinit var mobilePercent: TextView
+    private lateinit var focusWifiDot: View
+    private lateinit var focusWifiPercent: TextView
+    private lateinit var focusMobileDot: View
+    private lateinit var focusMobilePercent: TextView
     private lateinit var chartImage: ImageView
 
     private lateinit var hostsHeader: View
@@ -32,6 +36,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var hostsChevron: ImageView
     private lateinit var globalEdit: EditText
     private lateinit var whitelistEdit: EditText
+    private lateinit var focusEdit: EditText
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,6 +51,10 @@ class MainActivity : AppCompatActivity() {
         mobileDot = findViewById(R.id.mobileDot)
         mobileStatus = findViewById(R.id.mobileStatus)
         mobilePercent = findViewById(R.id.mobilePercent)
+        focusWifiDot = findViewById(R.id.focusWifiDot)
+        focusWifiPercent = findViewById(R.id.focusWifiPercent)
+        focusMobileDot = findViewById(R.id.focusMobileDot)
+        focusMobilePercent = findViewById(R.id.focusMobilePercent)
         chartImage = findViewById(R.id.historyChart)
 
         hostsHeader = findViewById(R.id.hostsHeader)
@@ -53,6 +62,7 @@ class MainActivity : AppCompatActivity() {
         hostsChevron = findViewById(R.id.hostsChevron)
         globalEdit = findViewById(R.id.globalHosts)
         whitelistEdit = findViewById(R.id.whitelistHosts)
+        focusEdit = findViewById(R.id.focusHosts)
 
         loadHosts()
 
@@ -68,6 +78,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<MaterialButton>(R.id.saveButton).setOnClickListener {
             repo.globalHosts = globalEdit.text.toString().toHostList()
             repo.whitelistHosts = whitelistEdit.text.toString().toHostList()
+            repo.focusHosts = focusEdit.text.toString().toHostList()
             Toast.makeText(this, R.string.saved, Toast.LENGTH_SHORT).show()
             WidgetProvider.renderAll(this)
         }
@@ -103,22 +114,29 @@ class MainActivity : AppCompatActivity() {
     private fun loadHosts() {
         globalEdit.setText(repo.globalHosts.joinToString("\n"))
         whitelistEdit.setText(repo.whitelistHosts.joinToString("\n"))
+        focusEdit.setText(repo.focusHosts.joinToString("\n"))
     }
 
     private fun renderDashboard() {
         renderCard(NetworkType.WIFI, wifiDot, wifiStatus, wifiPercent)
         renderCard(NetworkType.MOBILE, mobileDot, mobileStatus, mobilePercent)
+        renderFocusRow(NetworkType.WIFI, focusWifiDot, focusWifiPercent)
+        renderFocusRow(NetworkType.MOBILE, focusMobileDot, focusMobilePercent)
         renderChart()
     }
 
     private fun renderCard(network: NetworkType, dot: View, status: TextView, percent: TextView) {
         val s = repo.lastStatusFor(network)
-        dot.background = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(ContextCompat.getColor(this@MainActivity, statusColorRes(s)))
-        }
+        dot.background = ovalDrawable(statusColorRes(s))
         status.setText(statusLabelRes(s))
         val p = history.availabilityPercent(network)
+        percent.text = if (p == null) "—" else "$p%"
+    }
+
+    private fun renderFocusRow(network: NetworkType, dot: View, percent: TextView) {
+        val s = repo.lastFocusStatusFor(network)
+        dot.background = ovalDrawable(focusColorRes(s))
+        val p = history.focusPercent(network)
         percent.text = if (p == null) "—" else "$p%"
     }
 
@@ -136,6 +154,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun ovalDrawable(colorRes: Int) = GradientDrawable().apply {
+        shape = GradientDrawable.OVAL
+        setColor(ContextCompat.getColor(this@MainActivity, colorRes))
+    }
+
     private fun statusColorRes(s: Status) = when (s) {
         Status.FULL -> R.color.status_full
         Status.WHITELIST -> R.color.status_whitelist
@@ -148,6 +171,13 @@ class MainActivity : AppCompatActivity() {
         Status.WHITELIST -> R.string.status_only_whitelist
         Status.NONE -> R.string.status_blocked
         Status.UNKNOWN -> R.string.status_no_data
+    }
+
+    // For focus the colour scheme differs: blocked is the expected, neutral
+    // state, only reachability counts as a positive signal.
+    private fun focusColorRes(s: Status) = when (s) {
+        Status.FULL -> R.color.status_full
+        else -> R.color.status_unknown
     }
 
     private fun String.toHostList() =

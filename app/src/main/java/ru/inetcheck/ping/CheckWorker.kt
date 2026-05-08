@@ -31,15 +31,17 @@ class CheckWorker(
             }
 
             val now = System.currentTimeMillis()
-            wifi?.let {
-                repo.lastStatusWifi = it
+            wifi?.let { (status, focus) ->
+                repo.lastStatusWifi = status
+                repo.lastFocusStatusWifi = focus
                 repo.lastCheckedAtWifi = now
-                history.append(now, it, NetworkType.WIFI)
+                history.append(now, status, NetworkType.WIFI, focus)
             }
-            mobile?.let {
-                repo.lastStatusMobile = it
+            mobile?.let { (status, focus) ->
+                repo.lastStatusMobile = status
+                repo.lastFocusStatusMobile = focus
                 repo.lastCheckedAtMobile = now
-                history.append(now, it, NetworkType.MOBILE)
+                history.append(now, status, NetworkType.MOBILE, focus)
             }
         } finally {
             repo.isChecking = false
@@ -48,7 +50,17 @@ class CheckWorker(
         return Result.success()
     }
 
-    private suspend fun evaluate(repo: HostsRepository, network: Network): Status {
+    /**
+     * Runs the main probe (global / whitelist) and the focus probe in parallel
+     * over the given network, returning (mainStatus, focusStatus).
+     */
+    private suspend fun evaluate(repo: HostsRepository, network: Network): Pair<Status, Status> = coroutineScope {
+        val main = async { evaluateMain(repo, network) }
+        val focus = async { evaluateFocus(repo, network) }
+        main.await() to focus.await()
+    }
+
+    private suspend fun evaluateMain(repo: HostsRepository, network: Network): Status {
         val global = HostChecker.anyReachable(repo.globalHosts, network)
         val whitelist = if (!global) HostChecker.anyReachable(repo.whitelistHosts, network) else false
         return when {
@@ -56,5 +68,10 @@ class CheckWorker(
             whitelist -> Status.WHITELIST
             else -> Status.NONE
         }
+    }
+
+    private suspend fun evaluateFocus(repo: HostsRepository, network: Network): Status {
+        if (repo.focusHosts.isEmpty()) return Status.UNKNOWN
+        return if (HostChecker.anyReachable(repo.focusHosts, network)) Status.FULL else Status.NONE
     }
 }

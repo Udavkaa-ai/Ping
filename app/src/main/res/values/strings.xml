@@ -23,6 +23,10 @@
     <string name="global_hosts_hint">Сайты, которые блокируются первыми. По одному на строку.</string>
     <string name="whitelist_hosts_title">Белый список</string>
     <string name="whitelist_hosts_hint">Российские хосты, которые обычно остаются доступны.</string>
+    <string name="focus_section">В фокусе РКН</string>
+    <string name="focus_subtitle">Заблокированные в РФ сайты — зелёный значит, что хватка ослабла.</string>
+    <string name="focus_hosts_title">В фокусе РКН</string>
+    <string name="focus_hosts_hint">Сайты, которые обычно блокированы в РФ. По одному на строку.</string>
 
     <string name="save">Сохранить</string>
     <string name="saved">Сохранено</string>
