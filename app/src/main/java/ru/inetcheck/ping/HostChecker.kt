@@ -1,5 +1,6 @@
 package ru.inetcheck.ping
 
+import android.net.Network
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -10,13 +11,18 @@ import java.net.URL
 object HostChecker {
     private const val TIMEOUT_MS = 4000
 
-    suspend fun anyReachable(hosts: List<String>): Boolean = coroutineScope {
+    /**
+     * Returns true if at least one host responds to an HTTPS HEAD request.
+     * If [network] is non-null, the connection is forced through that
+     * specific network (e.g. cellular while the device is on Wi-Fi).
+     */
+    suspend fun anyReachable(hosts: List<String>, network: Network? = null): Boolean = coroutineScope {
         if (hosts.isEmpty()) return@coroutineScope false
-        val deferred = hosts.map { host -> async(Dispatchers.IO) { reachable(host) } }
+        val deferred = hosts.map { host -> async(Dispatchers.IO) { reachable(host, network) } }
         deferred.any { it.await() }
     }
 
-    private suspend fun reachable(host: String): Boolean = withContext(Dispatchers.IO) {
+    private suspend fun reachable(host: String, network: Network?): Boolean = withContext(Dispatchers.IO) {
         val cleaned = host.trim()
             .removePrefix("https://")
             .removePrefix("http://")
@@ -26,7 +32,8 @@ object HostChecker {
         var connection: HttpURLConnection? = null
         try {
             val url = URL("https://$cleaned/")
-            connection = (url.openConnection() as HttpURLConnection).apply {
+            val raw = network?.openConnection(url) ?: url.openConnection()
+            connection = (raw as HttpURLConnection).apply {
                 connectTimeout = TIMEOUT_MS
                 readTimeout = TIMEOUT_MS
                 requestMethod = "HEAD"
