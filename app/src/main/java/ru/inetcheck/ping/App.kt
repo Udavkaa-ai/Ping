@@ -1,28 +1,21 @@
 package ru.inetcheck.ping
 
 import android.app.Application
-import android.content.Context
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import java.util.concurrent.TimeUnit
 
 class App : Application() {
     override fun onCreate() {
         super.onCreate()
-        schedulePeriodic(this)
+        // Cancel the legacy WorkManager periodic schedule from older builds.
+        // PeriodicWorkRequest gets aggressively deferred by Doze on stock
+        // Android and outright killed by MIUI's battery saver overnight.
+        runCatching {
+            WorkManager.getInstance(this).cancelUniqueWork(LEGACY_PERIODIC_WORK)
+        }
+        PingAlarm.scheduleNext(this)
     }
 
     companion object {
-        private const val PERIODIC_WORK = "periodic_check"
-
-        fun schedulePeriodic(context: Context) {
-            val request = PeriodicWorkRequestBuilder<CheckWorker>(15, TimeUnit.MINUTES).build()
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                PERIODIC_WORK,
-                ExistingPeriodicWorkPolicy.KEEP,
-                request
-            )
-        }
+        private const val LEGACY_PERIODIC_WORK = "periodic_check"
     }
 }
