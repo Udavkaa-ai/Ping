@@ -11,8 +11,34 @@ object NetworkRouter {
     private const val WAIT_TIMEOUT_MS = 6000
 
     /**
+     * True when the system default route currently goes through a VPN tunnel.
+     * Detected via TRANSPORT_VPN on the active network, with a fallback to the
+     * NOT_VPN capability for older / non-standard Android builds.
+     */
+    fun isVpnActive(context: Context): Boolean {
+        val cm = context.applicationContext
+            .getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val active = cm.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(active) ?: return false
+        return caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) ||
+            !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+    }
+
+    /**
+     * The system default Network — what an unbound socket would use. When a
+     * VPN is up, this is the VPN tunnel itself; otherwise it's the underlying
+     * Wi-Fi or cellular network.
+     */
+    fun defaultNetwork(context: Context): Network? {
+        val cm = context.applicationContext
+            .getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        return cm.activeNetwork
+    }
+
+    /**
      * Returns the transport currently used by the system default network.
-     * Used by the 2x1 widget to pick which lane's last status to show.
+     * If the default network is a VPN, looks past it to find the underlying
+     * Wi-Fi / cellular transport so the small widget shows the right label.
      */
     fun activeType(context: Context): NetworkType {
         val cm = context.applicationContext
@@ -21,6 +47,20 @@ object NetworkRouter {
         val caps = cm.getNetworkCapabilities(active) ?: return NetworkType.NONE
         if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
             return NetworkType.NONE
+        }
+        val isVpn = caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) ||
+            !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+        if (isVpn) {
+            // Look for a non-VPN network with internet — that's the transport
+            // the VPN tunnel rides on top of.
+            for (net in cm.allNetworks) {
+                val c = cm.getNetworkCapabilities(net) ?: continue
+                if (c.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) continue
+                if (!c.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) continue
+                if (c.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) return NetworkType.WIFI
+                if (c.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) return NetworkType.MOBILE
+            }
+            return NetworkType.OTHER
         }
         return when {
             caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> NetworkType.WIFI
@@ -34,6 +74,10 @@ object NetworkRouter {
      * and runs [block] on it. Returns null if the network can't be obtained
      * within the timeout (no SIM, airplane mode, Wi-Fi off, etc.). Always
      * unregisters the callback so the modem / radio can spin down.
+     *
+     * NOTE: this bypasses any active VPN. CheckWorker therefore only calls it
+     * when VPN is NOT in front, otherwise we'd report the underlying DPI-blocked
+     * raw transport instead of the user's actual VPN-tunneled experience.
      */
     suspend fun <T> probe(
         context: Context,
