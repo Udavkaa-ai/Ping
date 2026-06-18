@@ -40,6 +40,7 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+                <action android:name="ru.inetcheck.ping.ACTION_CHECK_SMALL"/>
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

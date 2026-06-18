@@ -7,14 +7,14 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.view.View
 import android.widget.RemoteViews
 
 /**
- * 2x1 home-screen widget: a single coloured tile that reflects the last
- * known status of the network the device is currently using. Tap opens
- * the app — fresh data comes from the periodic AlarmManager check or
- * the big widget's button; running a check silently from a 2x1 tap
- * gave no visual feedback and was unreliable on MIUI broadcast policy.
+ * 2x1 home-screen widget: a single coloured tile with the last known status
+ * of the network the device is currently using, plus a small refresh button
+ * on the right that triggers an immediate check and shows a spinner while
+ * the check is running. Tapping anywhere else opens the app.
  */
 class WidgetProviderSmall : AppWidgetProvider() {
 
@@ -26,8 +26,17 @@ class WidgetProviderSmall : AppWidgetProvider() {
         ids.forEach { id -> render(context, manager, id) }
     }
 
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+        if (intent.action == ACTION_CHECK_SMALL) {
+            WidgetProvider.triggerCheck(context)
+        }
+    }
+
     companion object {
+        const val ACTION_CHECK_SMALL = "ru.inetcheck.ping.ACTION_CHECK_SMALL"
         private const val REQ_OPEN = 12
+        private const val REQ_CHECK = 13
 
         fun renderAll(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
@@ -56,6 +65,16 @@ class WidgetProviderSmall : AppWidgetProvider() {
             views.setTextColor(R.id.widgetSmallText, textColorFor(status))
             views.setTextColor(R.id.widgetSmallNetwork, secondaryColorFor(status))
 
+            val checking = repo.isChecking
+            views.setViewVisibility(
+                R.id.widgetSmallRefreshIcon,
+                if (checking) View.GONE else View.VISIBLE
+            )
+            views.setViewVisibility(
+                R.id.widgetSmallProgress,
+                if (checking) View.VISIBLE else View.GONE
+            )
+
             val openPi = PendingIntent.getActivity(
                 context, REQ_OPEN,
                 Intent(context, MainActivity::class.java).apply {
@@ -64,6 +83,13 @@ class WidgetProviderSmall : AppWidgetProvider() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             views.setOnClickPendingIntent(R.id.widgetSmallRoot, openPi)
+
+            val checkPi = PendingIntent.getBroadcast(
+                context, REQ_CHECK,
+                Intent(context, WidgetProviderSmall::class.java).setAction(ACTION_CHECK_SMALL),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.widgetSmallRefresh, checkPi)
 
             manager.updateAppWidget(widgetId, views)
         }

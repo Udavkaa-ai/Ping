@@ -24,20 +24,29 @@ class WidgetProvider : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         if (intent.action == ACTION_CHECK) {
-            val repo = HostsRepository(context)
-            repo.isChecking = true
-            renderAll(context)
-            WorkManager.getInstance(context).enqueueUniqueWork(
-                ONE_TIME_WORK,
-                ExistingWorkPolicy.KEEP,
-                OneTimeWorkRequestBuilder<CheckWorker>().build()
-            )
+            triggerCheck(context)
         }
     }
 
     companion object {
         const val ACTION_CHECK = "ru.inetcheck.ping.ACTION_CHECK"
         const val ONE_TIME_WORK = "internet_check"
+
+        /**
+         * Flip isChecking on, re-render both widgets so any in-progress
+         * indicators show up immediately, and enqueue the worker. Used by
+         * both widget classes (and the activity) so they all stay in sync.
+         */
+        fun triggerCheck(context: Context) {
+            HostsRepository(context).isChecking = true
+            renderAll(context)
+            WidgetProviderSmall.renderAll(context)
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                ONE_TIME_WORK,
+                ExistingWorkPolicy.KEEP,
+                OneTimeWorkRequestBuilder<CheckWorker>().build()
+            )
+        }
 
         fun renderAll(context: Context) {
             val manager = AppWidgetManager.getInstance(context)

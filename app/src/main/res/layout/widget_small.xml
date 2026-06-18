@@ -4,28 +4,59 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="horizontal"
-    android:gravity="center"
+    android:gravity="center_vertical"
     android:padding="6dp"
     android:background="@drawable/bg_status_unknown">
 
-    <TextView
-        android:id="@+id/widgetSmallNetwork"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="8dp"
-        android:text="@string/network_wifi"
-        android:textColor="#FFFFFF"
-        android:textSize="12sp"
-        android:maxLines="1"/>
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:layout_marginStart="6dp">
 
-    <TextView
-        android:id="@+id/widgetSmallText"
+        <TextView
+            android:id="@+id/widgetSmallNetwork"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/network_wifi"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:maxLines="1"/>
+
+        <TextView
+            android:id="@+id/widgetSmallText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="—"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end"/>
+    </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/widgetSmallRefresh"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="—"
-        android:textColor="#FFFFFF"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:maxLines="1"
-        android:ellipsize="end"/>
+        android:padding="6dp"
+        android:clickable="true"
+        android:focusable="true">
+
+        <ImageView
+            android:id="@+id/widgetSmallRefreshIcon"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:src="@drawable/ic_refresh"
+            android:contentDescription="@string/check_now"/>
+
+        <ProgressBar
+            android:id="@+id/widgetSmallProgress"
+            style="@android:style/Widget.ProgressBar.Small"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:indeterminate="true"
+            android:visibility="gone"/>
+    </FrameLayout>
 </LinearLayout>
