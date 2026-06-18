@@ -19,18 +19,20 @@ class CheckWorker(
             val now = System.currentTimeMillis()
 
             if (NetworkRouter.isVpnActive(applicationContext)) {
-                // VPN is in front of the default route. requestNetwork on the
-                // raw transport would bypass the tunnel and report DPI-blocked
-                // status. Probe through the default network (the VPN tunnel)
-                // and record the result against its own lane — Wi-Fi / Mobile
-                // lanes keep their last known raw-transport values so the user
-                // can still see "what raw transport looked like last time".
-                // Focus through VPN is trivially reachable (tunnel bypasses
-                // DPI), so we don't bother running the focus probe at all.
+                // VPN is in front of the default route. Probe through the
+                // tunnel (default network) and attribute the result to the
+                // underlying transport's lane with viaVpn = true so the
+                // chart can mark this bucket as "checked through VPN".
+                // Focus probing is skipped: the tunnel bypasses DPI, so the
+                // focus answer is trivially "reachable" and carries no
+                // signal about whether RKN's grip has loosened on the raw
+                // transport. We preserve the previously-recorded focus
+                // status untouched.
+                val underlying = NetworkRouter.activeType(applicationContext)
                 val defaultNet = NetworkRouter.defaultNetwork(applicationContext)
-                if (defaultNet != null) {
+                if (defaultNet != null && (underlying == NetworkType.WIFI || underlying == NetworkType.MOBILE)) {
                     val status = evaluateMain(repo, defaultNet)
-                    writeLane(repo, history, NetworkType.VPN, status, Status.UNKNOWN, now)
+                    writeViaVpnLane(repo, history, underlying, status, now)
                 }
             } else {
                 val (wifi, mobile) = coroutineScope {
@@ -46,8 +48,8 @@ class CheckWorker(
                     }
                     w.await() to m.await()
                 }
-                wifi?.let { (s, f) -> writeLane(repo, history, NetworkType.WIFI, s, f, now) }
-                mobile?.let { (s, f) -> writeLane(repo, history, NetworkType.MOBILE, s, f, now) }
+                wifi?.let { (s, f) -> writeRawLane(repo, history, NetworkType.WIFI, s, f, now) }
+                mobile?.let { (s, f) -> writeRawLane(repo, history, NetworkType.MOBILE, s, f, now) }
             }
         } finally {
             repo.isChecking = false
@@ -57,7 +59,7 @@ class CheckWorker(
         return Result.success()
     }
 
-    private fun writeLane(
+    private fun writeRawLane(
         repo: HostsRepository,
         history: HistoryRepository,
         network: NetworkType,
@@ -76,13 +78,31 @@ class CheckWorker(
                 repo.lastFocusStatusMobile = focus
                 repo.lastCheckedAtMobile = now
             }
-            NetworkType.VPN -> {
-                repo.lastStatusVpn = status
-                repo.lastCheckedAtVpn = now
+            else -> return
+        }
+        history.append(now, status, network, focus, viaVpn = false)
+    }
+
+    private fun writeViaVpnLane(
+        repo: HostsRepository,
+        history: HistoryRepository,
+        network: NetworkType,
+        status: Status,
+        now: Long
+    ) {
+        when (network) {
+            NetworkType.WIFI -> {
+                repo.lastStatusWifi = status
+                repo.lastCheckedAtWifi = now
+                // lastFocusStatusWifi intentionally left alone
+            }
+            NetworkType.MOBILE -> {
+                repo.lastStatusMobile = status
+                repo.lastCheckedAtMobile = now
             }
             else -> return
         }
-        history.append(now, status, network, focus)
+        history.append(now, status, network, Status.UNKNOWN, viaVpn = true)
     }
 
     /**

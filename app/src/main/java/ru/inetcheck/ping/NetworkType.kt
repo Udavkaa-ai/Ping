@@ -1,5 +1,7 @@
 package ru.inetcheck.ping
 
-// VPN appended at the end so history rows encoded with the older WIFI/MOBILE/
-// OTHER/NONE ordinals still decode correctly via NetworkType.values()[ordinal].
+// VPN is kept at the end of the enum strictly for ordinal-stable decoding of
+// history rows written by a brief earlier build that treated VPN as its own
+// lane. Going forward VPN is a modifier (HistoryRepository.Entry.viaVpn), not
+// a transport — runtime code only ever attributes checks to WIFI / MOBILE.
 enum class NetworkType { WIFI, MOBILE, OTHER, NONE, VPN }

@@ -25,10 +25,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var mobileDot: View
     private lateinit var mobileStatus: TextView
     private lateinit var mobilePercent: TextView
-    private lateinit var vpnCard: View
-    private lateinit var vpnDot: View
-    private lateinit var vpnStatus: TextView
-    private lateinit var vpnPercent: TextView
+    private lateinit var wifiCardLabel: TextView
+    private lateinit var mobileCardLabel: TextView
     private lateinit var focusWifiDot: View
     private lateinit var focusWifiPercent: TextView
     private lateinit var focusMobileDot: View
@@ -55,10 +53,8 @@ class MainActivity : AppCompatActivity() {
         mobileDot = findViewById(R.id.mobileDot)
         mobileStatus = findViewById(R.id.mobileStatus)
         mobilePercent = findViewById(R.id.mobilePercent)
-        vpnCard = findViewById(R.id.vpnCard)
-        vpnDot = findViewById(R.id.vpnDot)
-        vpnStatus = findViewById(R.id.vpnStatus)
-        vpnPercent = findViewById(R.id.vpnPercent)
+        wifiCardLabel = findViewById(R.id.wifiCardLabel)
+        mobileCardLabel = findViewById(R.id.mobileCardLabel)
         focusWifiDot = findViewById(R.id.focusWifiDot)
         focusWifiPercent = findViewById(R.id.focusWifiPercent)
         focusMobileDot = findViewById(R.id.focusMobileDot)
@@ -131,18 +127,28 @@ class MainActivity : AppCompatActivity() {
         renderCard(NetworkType.WIFI, wifiDot, wifiStatus, wifiPercent)
         renderCard(NetworkType.MOBILE, mobileDot, mobileStatus, mobilePercent)
 
-        // VPN card appears only after the user has at least one VPN session,
-        // or has one running right now — VPN-less users don't see a dead card.
-        val showVpn = repo.lastStatusVpn != Status.UNKNOWN ||
-            NetworkRouter.isVpnActive(this)
-        vpnCard.visibility = if (showVpn) View.VISIBLE else View.GONE
-        if (showVpn) {
-            renderCard(NetworkType.VPN, vpnDot, vpnStatus, vpnPercent)
-        }
+        // VPN is a state modifier, not a lane: tag the underlying transport's
+        // label with "(VPN)" when a tunnel is currently up so the user knows
+        // the percentage came from VPN-routed traffic, not raw transport.
+        val active = NetworkRouter.activeType(this)
+        val viaVpn = NetworkRouter.isVpnActive(this)
+        wifiCardLabel.text = networkLabel(NetworkType.WIFI, viaVpn && active == NetworkType.WIFI)
+        mobileCardLabel.text = networkLabel(NetworkType.MOBILE, viaVpn && active == NetworkType.MOBILE)
 
         renderFocusRow(NetworkType.WIFI, focusWifiDot, focusWifiPercent)
         renderFocusRow(NetworkType.MOBILE, focusMobileDot, focusMobilePercent)
         renderChart()
+    }
+
+    private fun networkLabel(network: NetworkType, viaVpn: Boolean): CharSequence {
+        val base = getString(
+            when (network) {
+                NetworkType.WIFI -> R.string.network_wifi
+                NetworkType.MOBILE -> R.string.network_mobile
+                else -> R.string.network_other
+            }
+        )
+        return if (viaVpn) "$base ${getString(R.string.via_vpn_suffix)}" else base
     }
 
     private fun renderCard(network: NetworkType, dot: View, status: TextView, percent: TextView) {
@@ -168,8 +174,7 @@ class MainActivity : AppCompatActivity() {
             val bmp = ChartRenderer.render(
                 this, w, h,
                 ChartRenderer.Lane(getString(R.string.network_wifi), all.filter { it.network == NetworkType.WIFI }),
-                ChartRenderer.Lane(getString(R.string.network_mobile), all.filter { it.network == NetworkType.MOBILE }),
-                ChartRenderer.Lane(getString(R.string.network_vpn), all.filter { it.network == NetworkType.VPN })
+                ChartRenderer.Lane(getString(R.string.network_mobile), all.filter { it.network == NetworkType.MOBILE })
             )
             chartImage.setImageBitmap(bmp)
         }

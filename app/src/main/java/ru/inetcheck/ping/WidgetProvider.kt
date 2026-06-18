@@ -6,7 +6,6 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.view.View
 import android.widget.RemoteViews
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -57,6 +56,21 @@ class WidgetProvider : AppWidgetProvider() {
             val history = HistoryRepository(context)
             val views = RemoteViews(context.packageName, R.layout.widget)
 
+            // VPN is a modifier, not a lane. When it's currently up we tag the
+            // underlying transport's label with "(VPN)" so the user can see
+            // whether the percentage they're reading came from raw transport
+            // or tunneled traffic.
+            val active = NetworkRouter.activeType(context)
+            val isVpn = NetworkRouter.isVpnActive(context)
+            views.setTextViewText(
+                R.id.wifiLabel,
+                labelFor(context, NetworkType.WIFI, isVpn && active == NetworkType.WIFI)
+            )
+            views.setTextViewText(
+                R.id.mobileLabel,
+                labelFor(context, NetworkType.MOBILE, isVpn && active == NetworkType.MOBILE)
+            )
+
             applyMainLane(
                 views, R.id.wifiDot, R.id.wifiPercent,
                 repo.lastStatusWifi,
@@ -67,7 +81,6 @@ class WidgetProvider : AppWidgetProvider() {
                 repo.lastStatusMobile,
                 history.availabilityPercent(NetworkType.MOBILE)
             )
-            applyVpnLane(context, views, repo, history)
             applyFocusLane(views, repo, history)
 
             val buttonText = context.getString(
@@ -94,6 +107,17 @@ class WidgetProvider : AppWidgetProvider() {
             manager.updateAppWidget(widgetId, views)
         }
 
+        private fun labelFor(context: Context, network: NetworkType, viaVpn: Boolean): CharSequence {
+            val base = context.getString(
+                when (network) {
+                    NetworkType.WIFI -> R.string.network_wifi
+                    NetworkType.MOBILE -> R.string.network_mobile
+                    else -> R.string.network_other
+                }
+            )
+            return if (viaVpn) "$base ${context.getString(R.string.via_vpn_suffix)}" else base
+        }
+
         private fun applyMainLane(
             views: RemoteViews,
             dotId: Int,
@@ -104,27 +128,6 @@ class WidgetProvider : AppWidgetProvider() {
             views.setImageViewResource(dotId, mainDotResFor(status))
             val text = if (status == Status.UNKNOWN || percent == null) "—" else "$percent%"
             views.setTextViewText(percentId, text)
-        }
-
-        private fun applyVpnLane(
-            context: Context,
-            views: RemoteViews,
-            repo: HostsRepository,
-            history: HistoryRepository
-        ) {
-            // The VPN row is conditional: it appears once the user has any
-            // recorded VPN session or has one running right now, otherwise it
-            // would just be a permanent "—" line for VPN-less users.
-            val hasHistory = repo.lastStatusVpn != Status.UNKNOWN
-            val active = NetworkRouter.isVpnActive(context)
-            val visible = hasHistory || active
-            views.setViewVisibility(R.id.vpnRow, if (visible) View.VISIBLE else View.GONE)
-            if (!visible) return
-            applyMainLane(
-                views, R.id.vpnDot, R.id.vpnPercent,
-                repo.lastStatusVpn,
-                history.availabilityPercent(NetworkType.VPN)
-            )
         }
 
         private fun applyFocusLane(

@@ -60,12 +60,13 @@ class WidgetProviderSmall : AppWidgetProvider() {
         ) {
             val repo = HostsRepository(context)
             val active = NetworkRouter.activeType(context)
+            val viaVpn = NetworkRouter.isVpnActive(context)
             val status = repo.lastStatusFor(active)
             val views = RemoteViews(context.packageName, R.layout.widget_small)
 
             views.setInt(R.id.widgetSmallRoot, "setBackgroundResource", bgFor(status))
             views.setTextViewText(R.id.widgetSmallText, statusLabel(context, status))
-            views.setTextViewText(R.id.widgetSmallNetwork, networkLabel(context, active))
+            views.setTextViewText(R.id.widgetSmallNetwork, networkLabel(context, active, viaVpn))
 
             val textColor = textColorFor(status)
             views.setTextColor(R.id.widgetSmallText, textColor)
@@ -109,12 +110,20 @@ class WidgetProviderSmall : AppWidgetProvider() {
             }
         )
 
-        private fun networkLabel(context: Context, n: NetworkType): String = when (n) {
-            NetworkType.WIFI -> context.getString(R.string.network_wifi)
-            NetworkType.MOBILE -> context.getString(R.string.network_mobile)
-            NetworkType.VPN -> context.getString(R.string.network_vpn)
-            NetworkType.OTHER -> context.getString(R.string.network_other)
-            NetworkType.NONE -> context.getString(R.string.network_offline)
+        private fun networkLabel(context: Context, n: NetworkType, viaVpn: Boolean): String {
+            val base = when (n) {
+                NetworkType.WIFI -> context.getString(R.string.network_wifi)
+                NetworkType.MOBILE -> context.getString(R.string.network_mobile)
+                NetworkType.OTHER -> context.getString(R.string.network_other)
+                NetworkType.NONE -> context.getString(R.string.network_offline)
+                else -> context.getString(R.string.network_other)
+            }
+            // VPN status itself isn't shown — the tile colour already reflects
+            // whether the tunnel provides access — but we mark the transport
+            // label so the user knows the percentage is via-VPN.
+            return if (viaVpn && (n == NetworkType.WIFI || n == NetworkType.MOBILE)) {
+                "$base ${context.getString(R.string.via_vpn_suffix)}"
+            } else base
         }
     }
 }

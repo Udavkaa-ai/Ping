@@ -8,9 +8,15 @@ class HistoryRepository(context: Context) {
     private val prefs = context.applicationContext
         .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    fun append(time: Long, status: Status, network: NetworkType, focus: Status) {
+    fun append(
+        time: Long,
+        status: Status,
+        network: NetworkType,
+        focus: Status,
+        viaVpn: Boolean
+    ) {
         val cutoff = System.currentTimeMillis() - RETAIN_MS
-        val updated = (load() + Entry(time, status, network, focus))
+        val updated = (load() + Entry(time, status, network, focus, viaVpn))
             .filter { it.time >= cutoff }
             .sortedBy { it.time }
         prefs.edit {
@@ -48,7 +54,7 @@ class HistoryRepository(context: Context) {
     }
 
     private fun encode(e: Entry) =
-        "${e.time},${e.status.ordinal},${e.network.ordinal},${e.focus.ordinal}"
+        "${e.time},${e.status.ordinal},${e.network.ordinal},${e.focus.ordinal},${if (e.viaVpn) 1 else 0}"
 
     private fun decode(line: String): Entry? {
         val parts = line.split(',')
@@ -61,21 +67,30 @@ class HistoryRepository(context: Context) {
         val f = if (parts.size >= 4) {
             Status.values().getOrNull(parts[3].toIntOrNull() ?: -1) ?: Status.UNKNOWN
         } else Status.UNKNOWN
-        return Entry(t, s, n, f)
+        val v = if (parts.size >= 5) parts[4] == "1" else false
+        return Entry(t, s, n, f, v)
     }
 
     /**
+     * Each check produces one Entry. status / focus are the probe verdicts;
+     * network is the underlying transport (Wi-Fi or Mobile — even when going
+     * via VPN the entry is attributed to the transport the tunnel rides on);
+     * viaVpn marks whether the probe went through a VPN tunnel, which the
+     * chart renders as a thin overlay strip on the bar.
+     *
      * focus is reused as a 3-state flag for the focus list:
      *   FULL    = at least one focus host responded ("RKN grip loosened")
      *   NONE    = focus hosts blocked (expected)
-     *   UNKNOWN = focus list empty, or legacy row without the field
-     * Other Status values (WHITELIST) are not produced for focus.
+     *   UNKNOWN = focus list empty, legacy row, or measurement skipped
+     *             (we skip focus when going through VPN — the tunnel
+     *             trivially bypasses DPI, so the answer carries no signal).
      */
     data class Entry(
         val time: Long,
         val status: Status,
         val network: NetworkType,
-        val focus: Status
+        val focus: Status,
+        val viaVpn: Boolean = false
     )
 
     companion object {

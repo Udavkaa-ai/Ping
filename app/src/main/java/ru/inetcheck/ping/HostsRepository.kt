@@ -36,14 +36,6 @@ class HostsRepository(context: Context) {
         get() = prefs.getLong(KEY_AT_MOBILE, 0L)
         set(value) = prefs.edit { putLong(KEY_AT_MOBILE, value) }
 
-    var lastStatusVpn: Status
-        get() = readStatus(KEY_STATUS_VPN)
-        set(value) = prefs.edit { putInt(KEY_STATUS_VPN, value.ordinal) }
-
-    var lastCheckedAtVpn: Long
-        get() = prefs.getLong(KEY_AT_VPN, 0L)
-        set(value) = prefs.edit { putLong(KEY_AT_VPN, value) }
-
     var lastFocusStatusWifi: Status
         get() = readStatus(KEY_FOCUS_STATUS_WIFI)
         set(value) = prefs.edit { putInt(KEY_FOCUS_STATUS_WIFI, value.ordinal) }
@@ -59,15 +51,12 @@ class HostsRepository(context: Context) {
     fun lastStatusFor(network: NetworkType): Status = when (network) {
         NetworkType.WIFI -> lastStatusWifi
         NetworkType.MOBILE -> lastStatusMobile
-        NetworkType.VPN -> lastStatusVpn
         else -> Status.UNKNOWN
     }
 
     fun lastFocusStatusFor(network: NetworkType): Status = when (network) {
         NetworkType.WIFI -> lastFocusStatusWifi
         NetworkType.MOBILE -> lastFocusStatusMobile
-        // Focus through VPN trivially passes (the tunnel bypasses DPI), so we
-        // don't bother tracking it — always UNKNOWN.
         else -> Status.UNKNOWN
     }
 
@@ -97,8 +86,6 @@ class HostsRepository(context: Context) {
         private const val KEY_STATUS_MOBILE = "last_status_mobile"
         private const val KEY_AT_WIFI = "last_at_wifi"
         private const val KEY_AT_MOBILE = "last_at_mobile"
-        private const val KEY_STATUS_VPN = "last_status_vpn"
-        private const val KEY_AT_VPN = "last_at_vpn"
         private const val KEY_FOCUS_STATUS_WIFI = "last_focus_status_wifi"
         private const val KEY_FOCUS_STATUS_MOBILE = "last_focus_status_mobile"
         private const val KEY_CHECKING = "is_checking"
