@@ -31,6 +31,7 @@ class WidgetProvider : AppWidgetProvider() {
     companion object {
         const val ACTION_CHECK = "ru.inetcheck.ping.ACTION_CHECK"
         const val ONE_TIME_WORK = "internet_check"
+        private const val WINDOW_HOURS = 6
 
         /**
          * Flip isChecking on, re-render both widgets so any in-progress
@@ -65,31 +66,19 @@ class WidgetProvider : AppWidgetProvider() {
             val history = HistoryRepository(context)
             val views = RemoteViews(context.packageName, R.layout.widget)
 
-            // VPN is a modifier, not a lane. When it's currently up we tag the
-            // underlying transport's label with "(VPN)" so the user can see
-            // whether the percentage they're reading came from raw transport
-            // or tunneled traffic.
+            val all = history.load()
             val active = NetworkRouter.activeType(context)
             val isVpn = NetworkRouter.isVpnActive(context)
-            views.setTextViewText(
-                R.id.wifiLabel,
-                labelFor(context, NetworkType.WIFI, isVpn && active == NetworkType.WIFI)
-            )
-            views.setTextViewText(
-                R.id.mobileLabel,
-                labelFor(context, NetworkType.MOBILE, isVpn && active == NetworkType.MOBILE)
-            )
+            val wifiLabel = labelFor(context, NetworkType.WIFI, isVpn && active == NetworkType.WIFI)
+            val mobileLabel = labelFor(context, NetworkType.MOBILE, isVpn && active == NetworkType.MOBILE)
 
-            applyLane(
-                views, R.id.wifiDot, R.id.wifiPercent,
-                repo.lastStatusWifi,
-                history.availabilityPercent(NetworkType.WIFI)
+            val (bmpW, bmpH) = bitmapSizeFor(context, manager, widgetId)
+            val bitmap = MiniChartRenderer.render(
+                context, bmpW, bmpH, hours = WINDOW_HOURS,
+                MiniChartRenderer.Lane(wifiLabel, all.filter { it.network == NetworkType.WIFI }),
+                MiniChartRenderer.Lane(mobileLabel, all.filter { it.network == NetworkType.MOBILE })
             )
-            applyLane(
-                views, R.id.mobileDot, R.id.mobilePercent,
-                repo.lastStatusMobile,
-                history.availabilityPercent(NetworkType.MOBILE)
-            )
+            views.setImageViewBitmap(R.id.widgetChart, bitmap)
 
             val buttonText = context.getString(
                 if (repo.isChecking) R.string.checking else R.string.want_internet
@@ -115,7 +104,30 @@ class WidgetProvider : AppWidgetProvider() {
             manager.updateAppWidget(widgetId, views)
         }
 
-        private fun labelFor(context: Context, network: NetworkType, viaVpn: Boolean): CharSequence {
+        /**
+         * Pick a bitmap size matching the actual widget chart area so fitXY
+         * doesn't visibly stretch labels/bars. Falls back to a reasonable
+         * default before the launcher reports widget options.
+         */
+        private fun bitmapSizeFor(
+            context: Context,
+            manager: AppWidgetManager,
+            widgetId: Int
+        ): Pair<Int, Int> {
+            val opts = manager.getAppWidgetOptions(widgetId)
+            val minWdp = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 150)
+            val minHdp = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 150)
+            val density = context.resources.displayMetrics.density
+            val widthPx = (minWdp * density).toInt().coerceAtLeast(240)
+            // Subtract the rough height of padding (16dp) + button (~32dp) so
+            // the bitmap aspect matches the ImageView region rather than the
+            // whole widget cell.
+            val chartHdp = (minHdp - 48).coerceAtLeast(40)
+            val heightPx = (chartHdp * density).toInt().coerceAtLeast(80)
+            return widthPx to heightPx
+        }
+
+        private fun labelFor(context: Context, network: NetworkType, viaVpn: Boolean): String {
             val base = context.getString(
                 when (network) {
                     NetworkType.WIFI -> R.string.network_wifi
@@ -124,25 +136,6 @@ class WidgetProvider : AppWidgetProvider() {
                 }
             )
             return if (viaVpn) "$base ${context.getString(R.string.via_vpn_suffix)}" else base
-        }
-
-        private fun applyLane(
-            views: RemoteViews,
-            dotId: Int,
-            percentId: Int,
-            status: Status,
-            percent: Int?
-        ) {
-            views.setImageViewResource(dotId, dotResFor(status))
-            val text = if (status == Status.UNKNOWN || percent == null) "—" else "$percent%"
-            views.setTextViewText(percentId, text)
-        }
-
-        private fun dotResFor(status: Status) = when (status) {
-            Status.FULL -> R.drawable.dot_status_full
-            Status.WHITELIST -> R.drawable.dot_status_whitelist
-            Status.NONE -> R.drawable.dot_status_none
-            Status.UNKNOWN -> R.drawable.dot_status_unknown
         }
 
         private const val REQ_CHECK = 1

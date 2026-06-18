@@ -7,7 +7,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
-import android.view.View
 import android.widget.RemoteViews
 
 /**
@@ -66,13 +65,13 @@ class WidgetProviderSmall : AppWidgetProvider() {
             views.setTextColor(R.id.widgetSmallNetwork, secondaryColorFor(status))
 
             val checking = repo.isChecking
-            views.setViewVisibility(
-                R.id.widgetSmallRefreshIcon,
-                if (checking) View.GONE else View.VISIBLE
-            )
-            views.setViewVisibility(
-                R.id.widgetSmallProgress,
-                if (checking) View.VISIBLE else View.GONE
+            // Icon swap is more robust than ProgressBar in RemoteViews: the
+            // ProgressBar variant rendered the whole widget invisible on MIUI
+            // (style attribute / inflation issue). AnimationDrawable as the
+            // ImageView's src auto-loops when attached.
+            views.setImageViewResource(
+                R.id.widgetSmallRefresh,
+                if (checking) R.drawable.ic_loading else R.drawable.ic_refresh
             )
 
             val openPi = PendingIntent.getActivity(
@@ -89,6 +88,8 @@ class WidgetProviderSmall : AppWidgetProvider() {
                 Intent(context, WidgetProviderSmall::class.java).setAction(ACTION_CHECK_SMALL),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
+            // Child click on the refresh icon overrides the root's open-app
+            // intent for that touch region.
             views.setOnClickPendingIntent(R.id.widgetSmallRefresh, checkPi)
 
             manager.updateAppWidget(widgetId, views)
