@@ -11,7 +11,6 @@
     <string name="network_other">Сеть</string>
     <string name="network_offline">Нет сети</string>
     <string name="via_vpn_suffix">(VPN)</string>
-    <string name="widget_focus_label">РКН</string>
     <string name="widget_small_description">Компактная плашка 2×1 с цветом текущего статуса активной сети.</string>
     <string name="available_24h">доступно за 24 ч</string>
 
@@ -29,10 +28,6 @@
     <string name="global_hosts_hint">Сайты, которые блокируются первыми. По одному на строку.</string>
     <string name="whitelist_hosts_title">Белый список</string>
     <string name="whitelist_hosts_hint">Российские хосты, которые обычно остаются доступны.</string>
-    <string name="focus_section">В фокусе РКН</string>
-    <string name="focus_subtitle">Заблокированные в РФ сайты — зелёный значит, что хватка ослабла.</string>
-    <string name="focus_hosts_title">В фокусе РКН</string>
-    <string name="focus_hosts_hint">Сайты, которые обычно блокированы в РФ. По одному на строку.</string>
 
     <string name="save">Сохранить</string>
     <string name="saved">Сохранено</string>

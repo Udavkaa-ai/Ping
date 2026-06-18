@@ -23,23 +23,18 @@ class CheckWorker(
                 // tunnel (default network) and attribute the result to the
                 // underlying transport's lane with viaVpn = true so the
                 // chart can mark this bucket as "checked through VPN".
-                // Focus probing is skipped: the tunnel bypasses DPI, so the
-                // focus answer is trivially "reachable" and carries no
-                // signal about whether RKN's grip has loosened on the raw
-                // transport. We preserve the previously-recorded focus
-                // status untouched.
                 val defaultNet = NetworkRouter.defaultNetwork(applicationContext)
                 if (defaultNet != null) {
-                    // Some VPN setups (e.g. MIUI) hide the underlying network
-                    // entirely, so activeType returns OTHER. Fall back to WIFI
-                    // as a best guess — most VPN sessions ride on Wi-Fi — so
-                    // the data still flows into a lane the user can read.
+                    // MIUI sometimes hides the underlying transport while a
+                    // VPN is up — activeType then returns OTHER. Fall back
+                    // to WIFI (most common case) so data still lands in a
+                    // lane the UI reads.
                     val underlying = when (NetworkRouter.activeType(applicationContext)) {
                         NetworkType.MOBILE -> NetworkType.MOBILE
                         else -> NetworkType.WIFI
                     }
-                    val status = evaluateMain(repo, defaultNet)
-                    writeViaVpnLane(repo, history, underlying, status, now)
+                    val status = evaluate(repo, defaultNet)
+                    writeLane(repo, history, underlying, status, now, viaVpn = true)
                 }
             } else {
                 val (wifi, mobile) = coroutineScope {
@@ -55,8 +50,8 @@ class CheckWorker(
                     }
                     w.await() to m.await()
                 }
-                wifi?.let { (s, f) -> writeRawLane(repo, history, NetworkType.WIFI, s, f, now) }
-                mobile?.let { (s, f) -> writeRawLane(repo, history, NetworkType.MOBILE, s, f, now) }
+                wifi?.let { s -> writeLane(repo, history, NetworkType.WIFI, s, now, viaVpn = false) }
+                mobile?.let { s -> writeLane(repo, history, NetworkType.MOBILE, s, now, viaVpn = false) }
             }
         } finally {
             repo.isChecking = false
@@ -66,42 +61,18 @@ class CheckWorker(
         return Result.success()
     }
 
-    private fun writeRawLane(
+    private fun writeLane(
         repo: HostsRepository,
         history: HistoryRepository,
         network: NetworkType,
         status: Status,
-        focus: Status,
-        now: Long
-    ) {
-        when (network) {
-            NetworkType.WIFI -> {
-                repo.lastStatusWifi = status
-                repo.lastFocusStatusWifi = focus
-                repo.lastCheckedAtWifi = now
-            }
-            NetworkType.MOBILE -> {
-                repo.lastStatusMobile = status
-                repo.lastFocusStatusMobile = focus
-                repo.lastCheckedAtMobile = now
-            }
-            else -> return
-        }
-        history.append(now, status, network, focus, viaVpn = false)
-    }
-
-    private fun writeViaVpnLane(
-        repo: HostsRepository,
-        history: HistoryRepository,
-        network: NetworkType,
-        status: Status,
-        now: Long
+        now: Long,
+        viaVpn: Boolean
     ) {
         when (network) {
             NetworkType.WIFI -> {
                 repo.lastStatusWifi = status
                 repo.lastCheckedAtWifi = now
-                // lastFocusStatusWifi intentionally left alone
             }
             NetworkType.MOBILE -> {
                 repo.lastStatusMobile = status
@@ -109,20 +80,15 @@ class CheckWorker(
             }
             else -> return
         }
-        history.append(now, status, network, Status.UNKNOWN, viaVpn = true)
+        history.append(now, status, network, viaVpn)
     }
 
     /**
-     * Runs the main probe (global / whitelist) and the focus probe in parallel
-     * over the given network, returning (mainStatus, focusStatus).
+     * Returns Status.FULL when at least one "global" host responds,
+     * Status.WHITELIST when only the Russian whitelist answers, Status.NONE
+     * when nothing reachable.
      */
-    private suspend fun evaluate(repo: HostsRepository, network: Network): Pair<Status, Status> = coroutineScope {
-        val main = async { evaluateMain(repo, network) }
-        val focus = async { evaluateFocus(repo, network) }
-        main.await() to focus.await()
-    }
-
-    private suspend fun evaluateMain(repo: HostsRepository, network: Network): Status {
+    private suspend fun evaluate(repo: HostsRepository, network: Network): Status {
         val global = HostChecker.anyReachable(repo.globalHosts, network)
         val whitelist = if (!global) HostChecker.anyReachable(repo.whitelistHosts, network) else false
         return when {
@@ -130,10 +96,5 @@ class CheckWorker(
             whitelist -> Status.WHITELIST
             else -> Status.NONE
         }
-    }
-
-    private suspend fun evaluateFocus(repo: HostsRepository, network: Network): Status {
-        if (repo.focusHosts.isEmpty()) return Status.UNKNOWN
-        return if (HostChecker.anyReachable(repo.focusHosts, network)) Status.FULL else Status.NONE
     }
 }

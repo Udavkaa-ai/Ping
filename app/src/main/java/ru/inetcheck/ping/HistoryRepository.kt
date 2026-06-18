@@ -8,15 +8,9 @@ class HistoryRepository(context: Context) {
     private val prefs = context.applicationContext
         .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    fun append(
-        time: Long,
-        status: Status,
-        network: NetworkType,
-        focus: Status,
-        viaVpn: Boolean
-    ) {
+    fun append(time: Long, status: Status, network: NetworkType, viaVpn: Boolean) {
         val cutoff = System.currentTimeMillis() - RETAIN_MS
-        val updated = (load() + Entry(time, status, network, focus, viaVpn))
+        val updated = (load() + Entry(time, status, network, Status.UNKNOWN, viaVpn))
             .filter { it.time >= cutoff }
             .sortedBy { it.time }
         prefs.edit {
@@ -38,21 +32,6 @@ class HistoryRepository(context: Context) {
         return good * 100 / matches.size
     }
 
-    /**
-     * Share of checks (within [windowMs]) on [network] where focus hosts were
-     * actually reachable. Entries with focus = UNKNOWN (no focus list, or
-     * legacy rows) are ignored. Returns null if there's no data to base on.
-     */
-    fun focusPercent(network: NetworkType, windowMs: Long = DAY_MS): Int? {
-        val cutoff = System.currentTimeMillis() - windowMs
-        val matches = load().filter {
-            it.network == network && it.time >= cutoff && it.focus != Status.UNKNOWN
-        }
-        if (matches.isEmpty()) return null
-        val reachable = matches.count { it.focus == Status.FULL }
-        return reachable * 100 / matches.size
-    }
-
     private fun encode(e: Entry) =
         "${e.time},${e.status.ordinal},${e.network.ordinal},${e.focus.ordinal},${if (e.viaVpn) 1 else 0}"
 
@@ -72,18 +51,16 @@ class HistoryRepository(context: Context) {
     }
 
     /**
-     * Each check produces one Entry. status / focus are the probe verdicts;
-     * network is the underlying transport (Wi-Fi or Mobile — even when going
-     * via VPN the entry is attributed to the transport the tunnel rides on);
-     * viaVpn marks whether the probe went through a VPN tunnel, which the
-     * chart renders as a thin overlay strip on the bar.
+     * Each check produces one Entry. status is the probe verdict; network is
+     * the underlying transport the check ran over (Wi-Fi or Mobile — even
+     * when routed through a VPN the entry is attributed to the underlying
+     * transport); viaVpn marks whether the probe went through a VPN tunnel,
+     * which the chart renders as a thin overlay strip on the bar.
      *
-     * focus is reused as a 3-state flag for the focus list:
-     *   FULL    = at least one focus host responded ("RKN grip loosened")
-     *   NONE    = focus hosts blocked (expected)
-     *   UNKNOWN = focus list empty, legacy row, or measurement skipped
-     *             (we skip focus when going through VPN — the tunnel
-     *             trivially bypasses DPI, so the answer carries no signal).
+     * The focus field is a leftover from a removed "блокированные сайты"
+     * category — kept on the data class to keep older CSV rows decodable
+     * (position-4 in the legacy schema), but new entries always write
+     * UNKNOWN and no UI reads it.
      */
     data class Entry(
         val time: Long,

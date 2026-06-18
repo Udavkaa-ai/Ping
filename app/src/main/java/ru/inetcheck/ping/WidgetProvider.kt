@@ -71,17 +71,16 @@ class WidgetProvider : AppWidgetProvider() {
                 labelFor(context, NetworkType.MOBILE, isVpn && active == NetworkType.MOBILE)
             )
 
-            applyMainLane(
+            applyLane(
                 views, R.id.wifiDot, R.id.wifiPercent,
                 repo.lastStatusWifi,
                 history.availabilityPercent(NetworkType.WIFI)
             )
-            applyMainLane(
+            applyLane(
                 views, R.id.mobileDot, R.id.mobilePercent,
                 repo.lastStatusMobile,
                 history.availabilityPercent(NetworkType.MOBILE)
             )
-            applyFocusLane(views, repo, history)
 
             val buttonText = context.getString(
                 if (repo.isChecking) R.string.checking else R.string.want_internet
@@ -118,54 +117,23 @@ class WidgetProvider : AppWidgetProvider() {
             return if (viaVpn) "$base ${context.getString(R.string.via_vpn_suffix)}" else base
         }
 
-        private fun applyMainLane(
+        private fun applyLane(
             views: RemoteViews,
             dotId: Int,
             percentId: Int,
             status: Status,
             percent: Int?
         ) {
-            views.setImageViewResource(dotId, mainDotResFor(status))
+            views.setImageViewResource(dotId, dotResFor(status))
             val text = if (status == Status.UNKNOWN || percent == null) "—" else "$percent%"
             views.setTextViewText(percentId, text)
         }
 
-        private fun applyFocusLane(
-            views: RemoteViews,
-            repo: HostsRepository,
-            history: HistoryRepository
-        ) {
-            val wifi = repo.lastFocusStatusWifi
-            val mobile = repo.lastFocusStatusMobile
-            // Aggregate: green only when at least one transport actually had a
-            // focus host respond. Anything else collapses to "blocked / no data".
-            val status = when {
-                wifi == Status.FULL || mobile == Status.FULL -> Status.FULL
-                wifi == Status.NONE || mobile == Status.NONE -> Status.NONE
-                else -> Status.UNKNOWN
-            }
-            val percent = listOfNotNull(
-                history.focusPercent(NetworkType.WIFI),
-                history.focusPercent(NetworkType.MOBILE)
-            ).maxOrNull()
-
-            views.setImageViewResource(R.id.focusDot, focusDotResFor(status))
-            val text = if (status == Status.UNKNOWN || percent == null) "—" else "$percent%"
-            views.setTextViewText(R.id.focusPercent, text)
-        }
-
-        private fun mainDotResFor(status: Status) = when (status) {
+        private fun dotResFor(status: Status) = when (status) {
             Status.FULL -> R.drawable.dot_status_full
             Status.WHITELIST -> R.drawable.dot_status_whitelist
             Status.NONE -> R.drawable.dot_status_none
             Status.UNKNOWN -> R.drawable.dot_status_unknown
-        }
-
-        // For focus the colour scheme differs: blocked is the expected, neutral
-        // state; reachability is the only positive signal worth highlighting.
-        private fun focusDotResFor(status: Status) = when (status) {
-            Status.FULL -> R.drawable.dot_status_full
-            else -> R.drawable.dot_status_unknown
         }
 
         private const val REQ_CHECK = 1
