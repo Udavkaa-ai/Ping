@@ -8,7 +8,7 @@ import android.net.NetworkRequest
 import kotlinx.coroutines.suspendCancellableCoroutine
 
 object NetworkRouter {
-    private const val WAIT_TIMEOUT_MS = 6000
+    private const val WAIT_TIMEOUT_MS = 5000
 
     /**
      * True when the system default route currently goes through a VPN tunnel.

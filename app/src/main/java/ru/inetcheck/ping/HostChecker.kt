@@ -9,7 +9,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 object HostChecker {
-    private const val TIMEOUT_MS = 4000
+    private const val TIMEOUT_MS = 5000
 
     /**
      * Returns true if at least one host responds to an HTTPS HEAD request.

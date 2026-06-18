@@ -8,14 +8,13 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.widget.RemoteViews
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
 
 /**
  * 2x1 home-screen widget: a single coloured tile that reflects the last
- * known status of the network the device is currently using. Tap = run
- * a fresh check.
+ * known status of the network the device is currently using. Tap opens
+ * the app — fresh data comes from the periodic AlarmManager check or
+ * the big widget's button; running a check silently from a 2x1 tap
+ * gave no visual feedback and was unreliable on MIUI broadcast policy.
  */
 class WidgetProviderSmall : AppWidgetProvider() {
 
@@ -27,23 +26,8 @@ class WidgetProviderSmall : AppWidgetProvider() {
         ids.forEach { id -> render(context, manager, id) }
     }
 
-    override fun onReceive(context: Context, intent: Intent) {
-        super.onReceive(context, intent)
-        if (intent.action == ACTION_CHECK_SMALL) {
-            val repo = HostsRepository(context)
-            repo.isChecking = true
-            renderAll(context)
-            WorkManager.getInstance(context).enqueueUniqueWork(
-                WidgetProvider.ONE_TIME_WORK,
-                ExistingWorkPolicy.KEEP,
-                OneTimeWorkRequestBuilder<CheckWorker>().build()
-            )
-        }
-    }
-
     companion object {
-        const val ACTION_CHECK_SMALL = "ru.inetcheck.ping.ACTION_CHECK_SMALL"
-        private const val REQ_CHECK = 11
+        private const val REQ_OPEN = 12
 
         fun renderAll(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
@@ -59,27 +43,47 @@ class WidgetProviderSmall : AppWidgetProvider() {
             widgetId: Int
         ) {
             val repo = HostsRepository(context)
+            val history = HistoryRepository(context)
             val active = NetworkRouter.activeType(context)
             val viaVpn = NetworkRouter.isVpnActive(context)
-            val status = repo.lastStatusFor(active)
+            val status = statusFor(repo, history, active)
             val views = RemoteViews(context.packageName, R.layout.widget_small)
 
             views.setInt(R.id.widgetSmallRoot, "setBackgroundResource", bgFor(status))
             views.setTextViewText(R.id.widgetSmallText, statusLabel(context, status))
             views.setTextViewText(R.id.widgetSmallNetwork, networkLabel(context, active, viaVpn))
 
-            val textColor = textColorFor(status)
-            views.setTextColor(R.id.widgetSmallText, textColor)
+            views.setTextColor(R.id.widgetSmallText, textColorFor(status))
             views.setTextColor(R.id.widgetSmallNetwork, secondaryColorFor(status))
 
-            val pi = PendingIntent.getBroadcast(
-                context, REQ_CHECK,
-                Intent(context, WidgetProviderSmall::class.java).setAction(ACTION_CHECK_SMALL),
+            val openPi = PendingIntent.getActivity(
+                context, REQ_OPEN,
+                Intent(context, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                },
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            views.setOnClickPendingIntent(R.id.widgetSmallRoot, pi)
+            views.setOnClickPendingIntent(R.id.widgetSmallRoot, openPi)
 
             manager.updateAppWidget(widgetId, views)
+        }
+
+        /**
+         * Prefer the active transport's last status. If we don't have data
+         * for it (e.g. a brand-new install, or an exotic active type like
+         * OTHER), fall back to the most recent recorded check on any
+         * transport — better than showing "—" forever.
+         */
+        private fun statusFor(
+            repo: HostsRepository,
+            history: HistoryRepository,
+            active: NetworkType
+        ): Status {
+            val own = repo.lastStatusFor(active)
+            if (own != Status.UNKNOWN) return own
+            return history.load().lastOrNull {
+                it.network == NetworkType.WIFI || it.network == NetworkType.MOBILE
+            }?.status ?: Status.UNKNOWN
         }
 
         private fun bgFor(s: Status) = when (s) {
@@ -118,9 +122,6 @@ class WidgetProviderSmall : AppWidgetProvider() {
                 NetworkType.NONE -> context.getString(R.string.network_offline)
                 else -> context.getString(R.string.network_other)
             }
-            // VPN status itself isn't shown — the tile colour already reflects
-            // whether the tunnel provides access — but we mark the transport
-            // label so the user knows the percentage is via-VPN.
             return if (viaVpn && (n == NetworkType.WIFI || n == NetworkType.MOBILE)) {
                 "$base ${context.getString(R.string.via_vpn_suffix)}"
             } else base

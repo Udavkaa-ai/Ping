@@ -28,9 +28,16 @@ class CheckWorker(
                 // signal about whether RKN's grip has loosened on the raw
                 // transport. We preserve the previously-recorded focus
                 // status untouched.
-                val underlying = NetworkRouter.activeType(applicationContext)
                 val defaultNet = NetworkRouter.defaultNetwork(applicationContext)
-                if (defaultNet != null && (underlying == NetworkType.WIFI || underlying == NetworkType.MOBILE)) {
+                if (defaultNet != null) {
+                    // Some VPN setups (e.g. MIUI) hide the underlying network
+                    // entirely, so activeType returns OTHER. Fall back to WIFI
+                    // as a best guess — most VPN sessions ride on Wi-Fi — so
+                    // the data still flows into a lane the user can read.
+                    val underlying = when (NetworkRouter.activeType(applicationContext)) {
+                        NetworkType.MOBILE -> NetworkType.MOBILE
+                        else -> NetworkType.WIFI
+                    }
                     val status = evaluateMain(repo, defaultNet)
                     writeViaVpnLane(repo, history, underlying, status, now)
                 }
