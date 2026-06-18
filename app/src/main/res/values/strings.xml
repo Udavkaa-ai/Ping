@@ -8,6 +8,7 @@
 
     <string name="network_wifi">Wi-Fi</string>
     <string name="network_mobile">Mobile</string>
+    <string name="network_vpn">VPN</string>
     <string name="network_other">Сеть</string>
     <string name="network_offline">Нет сети</string>
     <string name="widget_focus_label">РКН</string>

@@ -19,17 +19,18 @@ class CheckWorker(
             val now = System.currentTimeMillis()
 
             if (NetworkRouter.isVpnActive(applicationContext)) {
-                // VPN is in front of the default route. Going through
-                // requestNetwork(WIFI/CELLULAR) would bypass the tunnel and
-                // hit raw DPI, falsely reporting "blocked" everywhere. Probe
-                // through the system default network — the VPN tunnel — and
-                // mirror the result onto both lanes so neither card shows a
-                // stale "raw transport" status while VPN is up.
+                // VPN is in front of the default route. requestNetwork on the
+                // raw transport would bypass the tunnel and report DPI-blocked
+                // status. Probe through the default network (the VPN tunnel)
+                // and record the result against its own lane — Wi-Fi / Mobile
+                // lanes keep their last known raw-transport values so the user
+                // can still see "what raw transport looked like last time".
+                // Focus through VPN is trivially reachable (tunnel bypasses
+                // DPI), so we don't bother running the focus probe at all.
                 val defaultNet = NetworkRouter.defaultNetwork(applicationContext)
                 if (defaultNet != null) {
-                    val (status, focus) = evaluate(repo, defaultNet)
-                    writeLane(repo, history, NetworkType.WIFI, status, focus, now)
-                    writeLane(repo, history, NetworkType.MOBILE, status, focus, now)
+                    val status = evaluateMain(repo, defaultNet)
+                    writeLane(repo, history, NetworkType.VPN, status, Status.UNKNOWN, now)
                 }
             } else {
                 val (wifi, mobile) = coroutineScope {
@@ -74,6 +75,10 @@ class CheckWorker(
                 repo.lastStatusMobile = status
                 repo.lastFocusStatusMobile = focus
                 repo.lastCheckedAtMobile = now
+            }
+            NetworkType.VPN -> {
+                repo.lastStatusVpn = status
+                repo.lastCheckedAtVpn = now
             }
             else -> return
         }

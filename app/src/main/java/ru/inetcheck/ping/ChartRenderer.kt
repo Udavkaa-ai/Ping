@@ -19,7 +19,8 @@ object ChartRenderer {
         width: Int,
         height: Int,
         wifi: Lane,
-        mobile: Lane
+        mobile: Lane,
+        vpn: Lane
     ): Bitmap {
         val w = width.coerceAtLeast(240)
         val h = height.coerceAtLeast(80)
@@ -33,11 +34,12 @@ object ChartRenderer {
 
         val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = ContextCompat.getColor(context, R.color.text_secondary)
-            textSize = h * 0.11f
+            textSize = h * 0.10f
         }
         val labelMaxW = maxOf(
             labelPaint.measureText(wifi.label),
-            labelPaint.measureText(mobile.label)
+            labelPaint.measureText(mobile.label),
+            labelPaint.measureText(vpn.label)
         )
         val labelAreaW = labelMaxW + h * 0.10f
         val chartLeft = labelAreaW
@@ -45,25 +47,27 @@ object ChartRenderer {
 
         val axisH = h * 0.18f
         val laneArea = h - axisH
-        val gap = h * 0.05f
-        val laneH = (laneArea - gap) / 2f
+        val gap = h * 0.04f
+        val laneH = (laneArea - 2 * gap) / 3f
 
         val wifiTop = 0f
-        val wifiBottom = wifiTop + laneH
-        val mobileTop = wifiBottom + gap
-        val mobileBottom = mobileTop + laneH
+        val mobileTop = wifiTop + laneH + gap
+        val vpnTop = mobileTop + laneH + gap
+        val vpnBottom = vpnTop + laneH
 
         val now = System.currentTimeMillis()
         val start = now - DAY_MS
 
         drawLane(context, canvas, chartLeft, wifiTop, chartW, laneH, wifi.entries, start, now)
         drawLane(context, canvas, chartLeft, mobileTop, chartW, laneH, mobile.entries, start, now)
+        drawLane(context, canvas, chartLeft, vpnTop, chartW, laneH, vpn.entries, start, now)
 
         // Lane labels on the left, vertically centred in their lane
         canvas.drawText(wifi.label, h * 0.04f, wifiTop + laneH / 2 + labelPaint.textSize / 3, labelPaint)
         canvas.drawText(mobile.label, h * 0.04f, mobileTop + laneH / 2 + labelPaint.textSize / 3, labelPaint)
+        canvas.drawText(vpn.label, h * 0.04f, vpnTop + laneH / 2 + labelPaint.textSize / 3, labelPaint)
 
-        drawAxis(context, canvas, chartLeft, chartW, mobileBottom, h.toFloat(), start)
+        drawAxis(context, canvas, chartLeft, chartW, vpnBottom, h.toFloat(), start)
 
         return bitmap
     }

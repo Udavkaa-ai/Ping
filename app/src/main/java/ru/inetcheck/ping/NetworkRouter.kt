@@ -37,8 +37,8 @@ object NetworkRouter {
 
     /**
      * Returns the transport currently used by the system default network.
-     * If the default network is a VPN, looks past it to find the underlying
-     * Wi-Fi / cellular transport so the small widget shows the right label.
+     * VPN is reported as its own lane (NetworkType.VPN) so the widget /
+     * activity can show its status separately from raw Wi-Fi / cellular.
      */
     fun activeType(context: Context): NetworkType {
         val cm = context.applicationContext
@@ -50,19 +50,8 @@ object NetworkRouter {
         }
         val isVpn = caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) ||
             !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
-        if (isVpn) {
-            // Look for a non-VPN network with internet — that's the transport
-            // the VPN tunnel rides on top of.
-            for (net in cm.allNetworks) {
-                val c = cm.getNetworkCapabilities(net) ?: continue
-                if (c.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) continue
-                if (!c.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) continue
-                if (c.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) return NetworkType.WIFI
-                if (c.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) return NetworkType.MOBILE
-            }
-            return NetworkType.OTHER
-        }
         return when {
+            isVpn -> NetworkType.VPN
             caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> NetworkType.WIFI
             caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> NetworkType.MOBILE
             else -> NetworkType.OTHER

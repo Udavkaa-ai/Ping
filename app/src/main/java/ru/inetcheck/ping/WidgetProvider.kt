@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.view.View
 import android.widget.RemoteViews
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -66,6 +67,7 @@ class WidgetProvider : AppWidgetProvider() {
                 repo.lastStatusMobile,
                 history.availabilityPercent(NetworkType.MOBILE)
             )
+            applyVpnLane(context, views, repo, history)
             applyFocusLane(views, repo, history)
 
             val buttonText = context.getString(
@@ -102,6 +104,27 @@ class WidgetProvider : AppWidgetProvider() {
             views.setImageViewResource(dotId, mainDotResFor(status))
             val text = if (status == Status.UNKNOWN || percent == null) "—" else "$percent%"
             views.setTextViewText(percentId, text)
+        }
+
+        private fun applyVpnLane(
+            context: Context,
+            views: RemoteViews,
+            repo: HostsRepository,
+            history: HistoryRepository
+        ) {
+            // The VPN row is conditional: it appears once the user has any
+            // recorded VPN session or has one running right now, otherwise it
+            // would just be a permanent "—" line for VPN-less users.
+            val hasHistory = repo.lastStatusVpn != Status.UNKNOWN
+            val active = NetworkRouter.isVpnActive(context)
+            val visible = hasHistory || active
+            views.setViewVisibility(R.id.vpnRow, if (visible) View.VISIBLE else View.GONE)
+            if (!visible) return
+            applyMainLane(
+                views, R.id.vpnDot, R.id.vpnPercent,
+                repo.lastStatusVpn,
+                history.availabilityPercent(NetworkType.VPN)
+            )
         }
 
         private fun applyFocusLane(

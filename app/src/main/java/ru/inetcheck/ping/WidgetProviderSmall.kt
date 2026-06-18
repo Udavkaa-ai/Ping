@@ -112,6 +112,7 @@ class WidgetProviderSmall : AppWidgetProvider() {
         private fun networkLabel(context: Context, n: NetworkType): String = when (n) {
             NetworkType.WIFI -> context.getString(R.string.network_wifi)
             NetworkType.MOBILE -> context.getString(R.string.network_mobile)
+            NetworkType.VPN -> context.getString(R.string.network_vpn)
             NetworkType.OTHER -> context.getString(R.string.network_other)
             NetworkType.NONE -> context.getString(R.string.network_offline)
         }
