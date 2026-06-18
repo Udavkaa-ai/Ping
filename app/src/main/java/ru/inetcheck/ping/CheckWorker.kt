@@ -46,6 +46,7 @@ class CheckWorker(
         } finally {
             repo.isChecking = false
             WidgetProvider.renderAll(applicationContext)
+            WidgetProviderSmall.renderAll(applicationContext)
         }
         return Result.success()
     }

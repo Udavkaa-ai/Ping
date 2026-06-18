@@ -8,11 +8,15 @@
 
     <string name="network_wifi">Wi-Fi</string>
     <string name="network_mobile">Mobile</string>
+    <string name="network_other">Сеть</string>
+    <string name="network_offline">Нет сети</string>
     <string name="widget_focus_label">РКН</string>
+    <string name="widget_small_description">Компактная плашка 2×1 с цветом текущего статуса активной сети.</string>
     <string name="available_24h">доступно за 24 ч</string>
 
     <string name="status_open">Открыт</string>
     <string name="status_only_whitelist">Только белый список</string>
+    <string name="status_only_whitelist_short">Белый список</string>
     <string name="status_blocked">Заблокирован</string>
     <string name="status_no_data">Нет данных</string>
 

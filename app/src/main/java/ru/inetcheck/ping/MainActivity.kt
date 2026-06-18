@@ -81,12 +81,14 @@ class MainActivity : AppCompatActivity() {
             repo.focusHosts = focusEdit.text.toString().toHostList()
             Toast.makeText(this, R.string.saved, Toast.LENGTH_SHORT).show()
             WidgetProvider.renderAll(this)
+            WidgetProviderSmall.renderAll(this)
         }
 
         findViewById<MaterialButton>(R.id.resetButton).setOnClickListener {
             repo.resetToDefaults()
             loadHosts()
             WidgetProvider.renderAll(this)
+            WidgetProviderSmall.renderAll(this)
         }
 
         hostsHeader.setOnClickListener { toggleHosts() }

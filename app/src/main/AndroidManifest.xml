@@ -36,6 +36,18 @@
         </receiver>
 
         <receiver
+            android:name=".WidgetProviderSmall"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+                <action android:name="ru.inetcheck.ping.ACTION_CHECK_SMALL"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_small"/>
+        </receiver>
+
+        <receiver
             android:name=".AlarmReceiver"
             android:exported="false">
             <intent-filter>
