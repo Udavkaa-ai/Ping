@@ -10,10 +10,11 @@ import android.graphics.Color
 import android.widget.RemoteViews
 
 /**
- * 2x1 home-screen widget: a single coloured tile with the last known status
- * of the network the device is currently using, plus a small refresh button
- * on the right that triggers an immediate check and shows a spinner while
- * the check is running. Tapping anywhere else opens the app.
+ * 2x1 home-screen tile. One combined "Wi-Fi · Открыт" TextView on the left,
+ * a refresh icon on the right. Tap the body to open the app, tap the icon
+ * to run a check. Kept deliberately minimal — MIUI's RemoteViews inflation
+ * has been allergic to anything fancier (ProgressBar, AnimationDrawable,
+ * nested clickable FrameLayouts).
  */
 class WidgetProviderSmall : AppWidgetProvider() {
 
@@ -58,21 +59,11 @@ class WidgetProviderSmall : AppWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.widget_small)
 
             views.setInt(R.id.widgetSmallRoot, "setBackgroundResource", bgFor(status))
-            views.setTextViewText(R.id.widgetSmallText, statusLabel(context, status))
-            views.setTextViewText(R.id.widgetSmallNetwork, networkLabel(context, active, viaVpn))
-
+            views.setTextViewText(R.id.widgetSmallText, label(context, active, status, viaVpn))
             views.setTextColor(R.id.widgetSmallText, textColorFor(status))
-            views.setTextColor(R.id.widgetSmallNetwork, secondaryColorFor(status))
-
-            val checking = repo.isChecking
-            // Icon swap is more robust than ProgressBar in RemoteViews: the
-            // ProgressBar variant rendered the whole widget invisible on
-            // MIUI (style attribute / inflation issue), and AnimationDrawable
-            // as the src tripped a similar "cannot load widget" failure
-            // there. ic_loading is a plain static three-dot vector.
             views.setImageViewResource(
                 R.id.widgetSmallRefresh,
-                if (checking) R.drawable.ic_loading else R.drawable.ic_refresh
+                if (repo.isChecking) R.drawable.ic_loading else R.drawable.ic_refresh
             )
 
             val openPi = PendingIntent.getActivity(
@@ -83,24 +74,22 @@ class WidgetProviderSmall : AppWidgetProvider() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             views.setOnClickPendingIntent(R.id.widgetSmallRoot, openPi)
+            views.setOnClickPendingIntent(R.id.widgetSmallText, openPi)
 
             val checkPi = PendingIntent.getBroadcast(
                 context, REQ_CHECK,
                 Intent(context, WidgetProviderSmall::class.java).setAction(ACTION_CHECK_SMALL),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            // Child click on the refresh icon overrides the root's open-app
-            // intent for that touch region.
             views.setOnClickPendingIntent(R.id.widgetSmallRefresh, checkPi)
 
             manager.updateAppWidget(widgetId, views)
         }
 
         /**
-         * Prefer the active transport's last status. If we don't have data
-         * for it (e.g. a brand-new install, or an exotic active type like
-         * OTHER), fall back to the most recent recorded check on any
-         * transport — better than showing "—" forever.
+         * Prefer the active transport's last status. Falls back to the most
+         * recent recorded check on any transport so the tile doesn't lock
+         * on "—" for a brand-new install or a transient OTHER active type.
          */
         private fun statusFor(
             repo: HostsRepository,
@@ -114,6 +103,33 @@ class WidgetProviderSmall : AppWidgetProvider() {
             }?.status ?: Status.UNKNOWN
         }
 
+        private fun label(
+            context: Context,
+            network: NetworkType,
+            status: Status,
+            viaVpn: Boolean
+        ): String {
+            val net = when (network) {
+                NetworkType.WIFI -> context.getString(R.string.network_wifi)
+                NetworkType.MOBILE -> context.getString(R.string.network_mobile)
+                NetworkType.OTHER -> context.getString(R.string.network_other)
+                NetworkType.NONE -> context.getString(R.string.network_offline)
+                else -> context.getString(R.string.network_other)
+            }
+            val tag = if (viaVpn && (network == NetworkType.WIFI || network == NetworkType.MOBILE)) {
+                " ${context.getString(R.string.via_vpn_suffix)}"
+            } else ""
+            val statusText = context.getString(
+                when (status) {
+                    Status.FULL -> R.string.status_open
+                    Status.WHITELIST -> R.string.status_only_whitelist_short
+                    Status.NONE -> R.string.status_blocked
+                    Status.UNKNOWN -> R.string.status_no_data
+                }
+            )
+            return "$net$tag · $statusText"
+        }
+
         private fun bgFor(s: Status) = when (s) {
             Status.FULL -> R.drawable.bg_status_full
             Status.WHITELIST -> R.drawable.bg_status_whitelist
@@ -121,38 +137,11 @@ class WidgetProviderSmall : AppWidgetProvider() {
             Status.UNKNOWN -> R.drawable.bg_status_unknown
         }
 
-        // Whitelist sector is near-white, every other status is dark/coloured;
-        // pick contrasting text so the label stays legible.
+        // Whitelist sector is near-white; everything else is dark/coloured.
+        // Pick a contrasting text colour so the label stays legible.
         private fun textColorFor(s: Status) = when (s) {
             Status.WHITELIST -> Color.parseColor("#1B1F23")
             else -> Color.WHITE
-        }
-
-        private fun secondaryColorFor(s: Status) = when (s) {
-            Status.WHITELIST -> Color.parseColor("#666B70")
-            else -> Color.parseColor("#E6FFFFFF")
-        }
-
-        private fun statusLabel(context: Context, s: Status): String = context.getString(
-            when (s) {
-                Status.FULL -> R.string.status_open
-                Status.WHITELIST -> R.string.status_only_whitelist_short
-                Status.NONE -> R.string.status_blocked
-                Status.UNKNOWN -> R.string.status_no_data
-            }
-        )
-
-        private fun networkLabel(context: Context, n: NetworkType, viaVpn: Boolean): String {
-            val base = when (n) {
-                NetworkType.WIFI -> context.getString(R.string.network_wifi)
-                NetworkType.MOBILE -> context.getString(R.string.network_mobile)
-                NetworkType.OTHER -> context.getString(R.string.network_other)
-                NetworkType.NONE -> context.getString(R.string.network_offline)
-                else -> context.getString(R.string.network_other)
-            }
-            return if (viaVpn && (n == NetworkType.WIFI || n == NetworkType.MOBILE)) {
-                "$base ${context.getString(R.string.via_vpn_suffix)}"
-            } else base
         }
     }
 }

@@ -70,14 +70,14 @@ class WidgetProvider : AppWidgetProvider() {
 
             applyLane(
                 context, views,
-                R.id.wifiDot, R.id.wifiLabel, R.id.wifiStatus, R.id.wifiPercent,
+                R.id.wifiDot, R.id.wifiTitle, R.id.wifiPercent,
                 NetworkType.WIFI, isVpn && active == NetworkType.WIFI,
                 repo.lastStatusWifi,
                 availabilityPercent(wifiEntries, WINDOW_HOURS)
             )
             applyLane(
                 context, views,
-                R.id.mobileDot, R.id.mobileLabel, R.id.mobileStatus, R.id.mobilePercent,
+                R.id.mobileDot, R.id.mobileTitle, R.id.mobilePercent,
                 NetworkType.MOBILE, isVpn && active == NetworkType.MOBILE,
                 repo.lastStatusMobile,
                 availabilityPercent(mobileEntries, WINDOW_HOURS)
@@ -88,6 +88,10 @@ class WidgetProvider : AppWidgetProvider() {
             )
             views.setTextViewText(R.id.refreshButton, buttonText)
 
+            // MIUI's launcher sometimes ignores setOnClickPendingIntent on the
+            // root LinearLayout, so we wire the same open-app intent to each
+            // row as a fallback. Whichever click target the launcher honours,
+            // tapping anywhere except the refresh button opens the app.
             val openPi = PendingIntent.getActivity(
                 context, REQ_OPEN,
                 Intent(context, MainActivity::class.java).apply {
@@ -96,6 +100,8 @@ class WidgetProvider : AppWidgetProvider() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             views.setOnClickPendingIntent(R.id.widgetRoot, openPi)
+            views.setOnClickPendingIntent(R.id.wifiRow, openPi)
+            views.setOnClickPendingIntent(R.id.mobileRow, openPi)
 
             val checkPi = PendingIntent.getBroadcast(
                 context, REQ_CHECK,
@@ -111,8 +117,7 @@ class WidgetProvider : AppWidgetProvider() {
             context: Context,
             views: RemoteViews,
             dotId: Int,
-            labelId: Int,
-            statusId: Int,
+            titleId: Int,
             percentId: Int,
             network: NetworkType,
             viaVpn: Boolean,
@@ -120,12 +125,16 @@ class WidgetProvider : AppWidgetProvider() {
             percent: Int?
         ) {
             views.setImageViewResource(dotId, dotResFor(status))
-            views.setTextViewText(labelId, labelFor(context, network, viaVpn))
-            views.setTextViewText(statusId, statusLabel(context, status))
+            views.setTextViewText(titleId, titleFor(context, network, viaVpn, status))
             views.setTextViewText(percentId, percent?.let { "$it%" } ?: "—")
         }
 
-        private fun labelFor(context: Context, network: NetworkType, viaVpn: Boolean): String {
+        private fun titleFor(
+            context: Context,
+            network: NetworkType,
+            viaVpn: Boolean,
+            status: Status
+        ): String {
             val base = context.getString(
                 when (network) {
                     NetworkType.WIFI -> R.string.network_wifi
@@ -133,17 +142,17 @@ class WidgetProvider : AppWidgetProvider() {
                     else -> R.string.network_other
                 }
             )
-            return if (viaVpn) "$base ${context.getString(R.string.via_vpn_suffix)}" else base
+            val tag = if (viaVpn) " ${context.getString(R.string.via_vpn_suffix)}" else ""
+            val statusText = context.getString(
+                when (status) {
+                    Status.FULL -> R.string.status_open
+                    Status.WHITELIST -> R.string.status_only_whitelist_short
+                    Status.NONE -> R.string.status_blocked
+                    Status.UNKNOWN -> R.string.status_no_data
+                }
+            )
+            return "$base$tag · $statusText"
         }
-
-        private fun statusLabel(context: Context, s: Status): String = context.getString(
-            when (s) {
-                Status.FULL -> R.string.status_open
-                Status.WHITELIST -> R.string.status_only_whitelist_short
-                Status.NONE -> R.string.status_blocked
-                Status.UNKNOWN -> R.string.status_no_data
-            }
-        )
 
         private fun dotResFor(status: Status) = when (status) {
             Status.FULL -> R.drawable.dot_status_full

@@ -136,6 +136,16 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         renderDashboard()
+        // Cheap way to react to "connection changed since I last looked":
+        // re-render with current cached state, plus kick off a fresh check
+        // in the background. The widget can't easily listen for connectivity
+        // changes without a foreground service, so the activity is the
+        // pragmatic refresh trigger.
+        sendBroadcast(
+            Intent(this, WidgetProvider::class.java)
+                .setAction(WidgetProvider.ACTION_CHECK)
+                .setPackage(packageName)
+        )
     }
 
     private fun toggleHosts() {
