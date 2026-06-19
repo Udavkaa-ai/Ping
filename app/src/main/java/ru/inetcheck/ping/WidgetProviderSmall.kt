@@ -66,9 +66,10 @@ class WidgetProviderSmall : AppWidgetProvider() {
 
             val checking = repo.isChecking
             // Icon swap is more robust than ProgressBar in RemoteViews: the
-            // ProgressBar variant rendered the whole widget invisible on MIUI
-            // (style attribute / inflation issue). AnimationDrawable as the
-            // ImageView's src auto-loops when attached.
+            // ProgressBar variant rendered the whole widget invisible on
+            // MIUI (style attribute / inflation issue), and AnimationDrawable
+            // as the src tripped a similar "cannot load widget" failure
+            // there. ic_loading is a plain static three-dot vector.
             views.setImageViewResource(
                 R.id.widgetSmallRefresh,
                 if (checking) R.drawable.ic_loading else R.drawable.ic_refresh

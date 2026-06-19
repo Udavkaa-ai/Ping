@@ -32,8 +32,6 @@ class WidgetProvider : AppWidgetProvider() {
         const val ACTION_CHECK = "ru.inetcheck.ping.ACTION_CHECK"
         const val ONE_TIME_WORK = "internet_check"
         private const val WINDOW_HOURS = 6
-        private const val STRIPE_W = 600
-        private const val STRIPE_H = 36
 
         fun triggerCheck(context: Context) {
             HostsRepository(context).isChecking = true
@@ -70,34 +68,19 @@ class WidgetProvider : AppWidgetProvider() {
             val active = NetworkRouter.activeType(context)
             val isVpn = NetworkRouter.isVpnActive(context)
 
-            // Wi-Fi row
-            views.setTextViewText(
-                R.id.wifiLabel,
-                labelFor(context, NetworkType.WIFI, isVpn && active == NetworkType.WIFI)
+            applyLane(
+                context, views,
+                R.id.wifiDot, R.id.wifiLabel, R.id.wifiStatus, R.id.wifiPercent,
+                NetworkType.WIFI, isVpn && active == NetworkType.WIFI,
+                repo.lastStatusWifi,
+                availabilityPercent(wifiEntries, WINDOW_HOURS)
             )
-            views.setTextViewText(R.id.wifiStatus, statusLabel(context, repo.lastStatusWifi))
-            views.setTextViewText(
-                R.id.wifiPercent,
-                percentLabel(MiniChartRenderer.availabilityPercent(wifiEntries, WINDOW_HOURS))
-            )
-            views.setImageViewBitmap(
-                R.id.wifiStripe,
-                MiniChartRenderer.render(context, STRIPE_W, STRIPE_H, WINDOW_HOURS, wifiEntries)
-            )
-
-            // Mobile row
-            views.setTextViewText(
-                R.id.mobileLabel,
-                labelFor(context, NetworkType.MOBILE, isVpn && active == NetworkType.MOBILE)
-            )
-            views.setTextViewText(R.id.mobileStatus, statusLabel(context, repo.lastStatusMobile))
-            views.setTextViewText(
-                R.id.mobilePercent,
-                percentLabel(MiniChartRenderer.availabilityPercent(mobileEntries, WINDOW_HOURS))
-            )
-            views.setImageViewBitmap(
-                R.id.mobileStripe,
-                MiniChartRenderer.render(context, STRIPE_W, STRIPE_H, WINDOW_HOURS, mobileEntries)
+            applyLane(
+                context, views,
+                R.id.mobileDot, R.id.mobileLabel, R.id.mobileStatus, R.id.mobilePercent,
+                NetworkType.MOBILE, isVpn && active == NetworkType.MOBILE,
+                repo.lastStatusMobile,
+                availabilityPercent(mobileEntries, WINDOW_HOURS)
             )
 
             val buttonText = context.getString(
@@ -124,6 +107,24 @@ class WidgetProvider : AppWidgetProvider() {
             manager.updateAppWidget(widgetId, views)
         }
 
+        private fun applyLane(
+            context: Context,
+            views: RemoteViews,
+            dotId: Int,
+            labelId: Int,
+            statusId: Int,
+            percentId: Int,
+            network: NetworkType,
+            viaVpn: Boolean,
+            status: Status,
+            percent: Int?
+        ) {
+            views.setImageViewResource(dotId, dotResFor(status))
+            views.setTextViewText(labelId, labelFor(context, network, viaVpn))
+            views.setTextViewText(statusId, statusLabel(context, status))
+            views.setTextViewText(percentId, percent?.let { "$it%" } ?: "—")
+        }
+
         private fun labelFor(context: Context, network: NetworkType, viaVpn: Boolean): String {
             val base = context.getString(
                 when (network) {
@@ -144,7 +145,23 @@ class WidgetProvider : AppWidgetProvider() {
             }
         )
 
-        private fun percentLabel(p: Int?): String = p?.let { "$it%" } ?: "—"
+        private fun dotResFor(status: Status) = when (status) {
+            Status.FULL -> R.drawable.dot_status_full
+            Status.WHITELIST -> R.drawable.dot_status_whitelist
+            Status.NONE -> R.drawable.dot_status_none
+            Status.UNKNOWN -> R.drawable.dot_status_unknown
+        }
+
+        private fun availabilityPercent(
+            entries: List<HistoryRepository.Entry>,
+            hours: Int
+        ): Int? {
+            val cutoff = System.currentTimeMillis() - hours.toLong() * 60 * 60 * 1000
+            val recent = entries.filter { it.time >= cutoff }
+            if (recent.isEmpty()) return null
+            val good = recent.count { it.status == Status.FULL || it.status == Status.WHITELIST }
+            return good * 100 / recent.size
+        }
 
         private const val REQ_CHECK = 1
         private const val REQ_OPEN = 2
