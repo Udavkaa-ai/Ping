@@ -12,6 +12,7 @@ class App : Application() {
         runCatching {
             WorkManager.getInstance(this).cancelUniqueWork(LEGACY_PERIODIC_WORK)
         }
+        NotificationHelper.ensureChannel(this)
         PingAlarm.scheduleNext(this)
     }
 

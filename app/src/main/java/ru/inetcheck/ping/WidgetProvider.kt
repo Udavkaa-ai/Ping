@@ -32,12 +32,9 @@ class WidgetProvider : AppWidgetProvider() {
         const val ACTION_CHECK = "ru.inetcheck.ping.ACTION_CHECK"
         const val ONE_TIME_WORK = "internet_check"
         private const val WINDOW_HOURS = 6
+        private const val STRIPE_W = 600
+        private const val STRIPE_H = 36
 
-        /**
-         * Flip isChecking on, re-render both widgets so any in-progress
-         * indicators show up immediately, and enqueue the worker. Used by
-         * both widget classes (and the activity) so they all stay in sync.
-         */
         fun triggerCheck(context: Context) {
             HostsRepository(context).isChecking = true
             renderAll(context)
@@ -67,18 +64,41 @@ class WidgetProvider : AppWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.widget)
 
             val all = history.load()
+            val wifiEntries = all.filter { it.network == NetworkType.WIFI }
+            val mobileEntries = all.filter { it.network == NetworkType.MOBILE }
+
             val active = NetworkRouter.activeType(context)
             val isVpn = NetworkRouter.isVpnActive(context)
-            val wifiLabel = labelFor(context, NetworkType.WIFI, isVpn && active == NetworkType.WIFI)
-            val mobileLabel = labelFor(context, NetworkType.MOBILE, isVpn && active == NetworkType.MOBILE)
 
-            val (bmpW, bmpH) = bitmapSizeFor(context, manager, widgetId)
-            val bitmap = MiniChartRenderer.render(
-                context, bmpW, bmpH, hours = WINDOW_HOURS,
-                MiniChartRenderer.Lane(wifiLabel, all.filter { it.network == NetworkType.WIFI }),
-                MiniChartRenderer.Lane(mobileLabel, all.filter { it.network == NetworkType.MOBILE })
+            // Wi-Fi row
+            views.setTextViewText(
+                R.id.wifiLabel,
+                labelFor(context, NetworkType.WIFI, isVpn && active == NetworkType.WIFI)
             )
-            views.setImageViewBitmap(R.id.widgetChart, bitmap)
+            views.setTextViewText(R.id.wifiStatus, statusLabel(context, repo.lastStatusWifi))
+            views.setTextViewText(
+                R.id.wifiPercent,
+                percentLabel(MiniChartRenderer.availabilityPercent(wifiEntries, WINDOW_HOURS))
+            )
+            views.setImageViewBitmap(
+                R.id.wifiStripe,
+                MiniChartRenderer.render(context, STRIPE_W, STRIPE_H, WINDOW_HOURS, wifiEntries)
+            )
+
+            // Mobile row
+            views.setTextViewText(
+                R.id.mobileLabel,
+                labelFor(context, NetworkType.MOBILE, isVpn && active == NetworkType.MOBILE)
+            )
+            views.setTextViewText(R.id.mobileStatus, statusLabel(context, repo.lastStatusMobile))
+            views.setTextViewText(
+                R.id.mobilePercent,
+                percentLabel(MiniChartRenderer.availabilityPercent(mobileEntries, WINDOW_HOURS))
+            )
+            views.setImageViewBitmap(
+                R.id.mobileStripe,
+                MiniChartRenderer.render(context, STRIPE_W, STRIPE_H, WINDOW_HOURS, mobileEntries)
+            )
 
             val buttonText = context.getString(
                 if (repo.isChecking) R.string.checking else R.string.want_internet
@@ -104,29 +124,6 @@ class WidgetProvider : AppWidgetProvider() {
             manager.updateAppWidget(widgetId, views)
         }
 
-        /**
-         * Pick a bitmap size matching the actual widget chart area so fitXY
-         * doesn't visibly stretch labels/bars. Falls back to a reasonable
-         * default before the launcher reports widget options.
-         */
-        private fun bitmapSizeFor(
-            context: Context,
-            manager: AppWidgetManager,
-            widgetId: Int
-        ): Pair<Int, Int> {
-            val opts = manager.getAppWidgetOptions(widgetId)
-            val minWdp = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 150)
-            val minHdp = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 150)
-            val density = context.resources.displayMetrics.density
-            val widthPx = (minWdp * density).toInt().coerceAtLeast(240)
-            // Subtract the rough height of padding (16dp) + button (~32dp) so
-            // the bitmap aspect matches the ImageView region rather than the
-            // whole widget cell.
-            val chartHdp = (minHdp - 48).coerceAtLeast(40)
-            val heightPx = (chartHdp * density).toInt().coerceAtLeast(80)
-            return widthPx to heightPx
-        }
-
         private fun labelFor(context: Context, network: NetworkType, viaVpn: Boolean): String {
             val base = context.getString(
                 when (network) {
@@ -137,6 +134,17 @@ class WidgetProvider : AppWidgetProvider() {
             )
             return if (viaVpn) "$base ${context.getString(R.string.via_vpn_suffix)}" else base
         }
+
+        private fun statusLabel(context: Context, s: Status): String = context.getString(
+            when (s) {
+                Status.FULL -> R.string.status_open
+                Status.WHITELIST -> R.string.status_only_whitelist_short
+                Status.NONE -> R.string.status_blocked
+                Status.UNKNOWN -> R.string.status_no_data
+            }
+        )
+
+        private fun percentLabel(p: Int?): String = p?.let { "$it%" } ?: "—"
 
         private const val REQ_CHECK = 1
         private const val REQ_OPEN = 2

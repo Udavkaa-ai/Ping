@@ -1,18 +1,22 @@
 package ru.inetcheck.ping
 
+import android.Manifest
 import android.content.Intent
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.materialswitch.MaterialSwitch
 
 class MainActivity : AppCompatActivity() {
 
@@ -34,6 +38,20 @@ class MainActivity : AppCompatActivity() {
     private lateinit var hostsChevron: ImageView
     private lateinit var globalEdit: EditText
     private lateinit var whitelistEdit: EditText
+    private lateinit var notifySwitch: MaterialSwitch
+
+    private val notificationPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            repo.notifyOnRecovery = true
+            notifySwitch.isChecked = true
+        } else {
+            repo.notifyOnRecovery = false
+            notifySwitch.isChecked = false
+            Toast.makeText(this, R.string.notify_permission_denied, Toast.LENGTH_LONG).show()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,6 +75,26 @@ class MainActivity : AppCompatActivity() {
         hostsChevron = findViewById(R.id.hostsChevron)
         globalEdit = findViewById(R.id.globalHosts)
         whitelistEdit = findViewById(R.id.whitelistHosts)
+        notifySwitch = findViewById(R.id.notifyRecoverySwitch)
+
+        // The switch reflects the stored toggle, but we also force it off when
+        // the runtime POST_NOTIFICATIONS permission has been revoked behind
+        // the app's back. setOnCheckedChangeListener has to be wired after
+        // initial state so we don't trigger the permission request on resume.
+        notifySwitch.isChecked = repo.notifyOnRecovery && NotificationHelper.hasPermission(this)
+        notifySwitch.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                if (NotificationHelper.hasPermission(this)) {
+                    repo.notifyOnRecovery = true
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    repo.notifyOnRecovery = true
+                }
+            } else {
+                repo.notifyOnRecovery = false
+            }
+        }
 
         loadHosts()
 

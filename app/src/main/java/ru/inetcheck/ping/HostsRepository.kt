@@ -36,6 +36,10 @@ class HostsRepository(context: Context) {
         get() = prefs.getBoolean(KEY_CHECKING, false)
         set(value) = prefs.edit { putBoolean(KEY_CHECKING, value) }
 
+    var notifyOnRecovery: Boolean
+        get() = prefs.getBoolean(KEY_NOTIFY_RECOVERY, false)
+        set(value) = prefs.edit { putBoolean(KEY_NOTIFY_RECOVERY, value) }
+
     fun lastStatusFor(network: NetworkType): Status = when (network) {
         NetworkType.WIFI -> lastStatusWifi
         NetworkType.MOBILE -> lastStatusMobile
@@ -67,6 +71,7 @@ class HostsRepository(context: Context) {
         private const val KEY_AT_WIFI = "last_at_wifi"
         private const val KEY_AT_MOBILE = "last_at_mobile"
         private const val KEY_CHECKING = "is_checking"
+        private const val KEY_NOTIFY_RECOVERY = "notify_recovery"
 
         val DEFAULT_GLOBAL = listOf("google.com", "cloudflare.com", "github.com")
         val DEFAULT_WHITELIST = listOf("yandex.ru", "vk.com", "mail.ru")

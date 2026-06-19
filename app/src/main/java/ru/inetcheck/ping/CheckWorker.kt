@@ -69,6 +69,7 @@ class CheckWorker(
         now: Long,
         viaVpn: Boolean
     ) {
+        val previous = repo.lastStatusFor(network)
         when (network) {
             NetworkType.WIFI -> {
                 repo.lastStatusWifi = status
@@ -81,6 +82,15 @@ class CheckWorker(
             else -> return
         }
         history.append(now, status, network, viaVpn)
+
+        // Recovery edge: was hard-down, now reachable in some form. WHITELIST
+        // counts as "internet returned" because the user usually cares about
+        // any traffic coming through, not just unrestricted access.
+        val recovered = previous == Status.NONE &&
+            (status == Status.FULL || status == Status.WHITELIST)
+        if (recovered) {
+            NotificationHelper.notifyRecovery(applicationContext, network, status, viaVpn)
+        }
     }
 
     /**

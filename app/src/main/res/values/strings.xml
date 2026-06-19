@@ -33,4 +33,12 @@
     <string name="saved">Сохранено</string>
     <string name="reset_defaults">Сбросить к дефолтам</string>
     <string name="widget_install_hint">Чтобы добавить виджет: долгое нажатие на рабочий стол › Виджеты › Ping RU.</string>
+
+    <string name="notify_recovery_toggle">Сообщать о возвращении интернета</string>
+    <string name="notify_recovery_hint">Уведомление в шторку, когда после перебоя интернет снова отвечает.</string>
+    <string name="notify_channel_name">Возвращение интернета</string>
+    <string name="notify_channel_description">Уведомления о том, что интернет снова доступен после перебоя.</string>
+    <string name="notify_recovery_title">Интернет вернулся</string>
+    <string name="notify_recovery_text">%1$s снова отвечает: %2$s</string>
+    <string name="notify_permission_denied">Без разрешения на уведомления Ping RU не сможет сообщать о возвращении интернета.</string>
 </resources>
